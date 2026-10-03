@@ -1,0 +1,114 @@
+.app {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 1.6rem;
+}
+
+.badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.badge-checking { background: var(--surface); color: var(--muted); }
+.badge-ok { background: #dcfce7; color: #166534; }
+.badge-down { background: #fee2e2; color: #991b1b; }
+
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.editor textarea {
+  min-height: 280px;
+  padding: 12px;
+  font-family: ui-monospace, Consolas, 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  resize: vertical;
+  tab-size: 4;
+}
+
+.editor button {
+  align-self: flex-start;
+  padding: 10px 20px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.editor button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.error {
+  padding: 10px 12px;
+  color: #991b1b;
+  background: #fee2e2;
+  border-radius: 8px;
+}
+
+.results h2 { margin-top: 24px; }
+.score { color: var(--accent); }
+.muted { color: var(--muted); }
+
+.issues {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.issue {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 4px 12px;
+  align-items: baseline;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.issue .meta {
+  grid-column: 1 / -1;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.line { font-family: ui-monospace, Consolas, monospace; color: var(--muted); }
+
+.severity {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #fff;
+}
+.severity-critical { background: #b91c1c; }
+.severity-high { background: #ea580c; }
+.severity-medium { background: #ca8a04; }
+.severity-low { background: #2563eb; }
+.severity-info { background: #64748b; }
