@@ -82,3 +82,12 @@ def test_api_echoes_language():
 )
 def test_count_loc_per_language_comments(code, prefixes, expected):
     assert count_loc(code, prefixes) == expected
+
+
+def test_languages_endpoint_lists_all_languages_in_order():
+    response = client.get("/languages")
+    assert response.status_code == 200
+    body = response.json()
+    assert [item["id"] for item in body] == [language.value for language in SPECS]
+    python = body[0]
+    assert python == {"id": "python", "label": "Python", "extensions": [".py", ".pyw"]}

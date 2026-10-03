@@ -3,6 +3,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.languages import SPECS
 from app.pipeline import analyze
 from app.schemas import AnalyzeRequest, AnalyzeResponse
 
@@ -24,8 +25,17 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/languages")
+def languages() -> list[dict]:
+    # Served from the registry so the frontend never keeps its own copy of the list.
+    return [
+        {"id": spec.language.value, "label": spec.label, "extensions": list(spec.extensions)}
+        for spec in SPECS.values()
+    ]
+
+
 @app.post("/analyze", response_model=AnalyzeResponse)
 def analyze_code(request: AnalyzeRequest) -> AnalyzeResponse:
     # Plain `def` (not async): FastAPI runs it in a threadpool, so the blocking analyzer
-    # subprocesses we add on Day 2 won't freeze the event loop.
+    # subprocesses don't freeze the event loop.
     return analyze(request.code, request.language)

@@ -8,11 +8,17 @@ export async function checkHealth() {
   return response.json()
 }
 
-export async function analyzeCode(code) {
+export async function getLanguages() {
+  const response = await fetch(`${API_URL}/languages`)
+  if (!response.ok) throw new Error(`Could not load languages (${response.status})`)
+  return response.json()
+}
+
+export async function analyzeCode(code, language) {
   const response = await fetch(`${API_URL}/analyze`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code }),
+    body: JSON.stringify({ code, language }),
   })
   if (!response.ok) {
     // FastAPI validation errors come back as 422 with a `detail` array.
