@@ -75,10 +75,10 @@ SPECS: dict[Language, LanguageSpec] = {
         LanguageSpec(Language.KOTLIN, "Kotlin", (".kt", ".kts"), C_STYLE, CODE_TOOLS),
         # Semgrep can't parse Objective-C, so only complexity is static; the AI covers the rest.
         LanguageSpec(Language.OBJECTIVE_C, "Objective-C", (".m", ".mm"), C_STYLE, ("lizard",)),
-        LanguageSpec(Language.SQL, "SQL", (".sql",), ("--",), ("sqlfluff",)),
+        LanguageSpec(Language.SQL, "SQL", (".sql",), ("--",), ("sqlfluff", "sql")),
         LanguageSpec(Language.HTML, "HTML", (".html", ".htm"), (), ("semgrep",)),
         LanguageSpec(Language.CSS, "CSS", (".css",), (), ("css",)),
-        LanguageSpec(Language.YAML, "YAML", (".yaml", ".yml"), HASH, ("yaml", "semgrep")),
+        LanguageSpec(Language.YAML, "YAML", (".yaml", ".yml"), HASH, ("yamllint", "semgrep")),
         LanguageSpec(Language.JSON, "JSON", (".json",), (), ("json", "semgrep")),
     ]
 }

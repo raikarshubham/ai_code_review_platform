@@ -17,9 +17,11 @@ function commands(userInput) {
   /a+b/.exec(userInput);
 }
 
-function queries(db, pool, id) {
+function queries(db, pool, userDb, id) {
   // ruleid: js-sql-injection
   db.query("SELECT * FROM users WHERE id = " + id);
+  // ruleid: js-sql-injection
+  userDb.query("SELECT * FROM users WHERE id = " + id);
   // ruleid: js-sql-injection
   pool.query(`DELETE FROM users WHERE id = ${id}`);
   // ok: js-sql-injection

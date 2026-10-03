@@ -9,10 +9,15 @@ from concurrent.futures import ThreadPoolExecutor
 
 from app.analyzers import (
     bandit_runner,
+    css_runner,
+    json_runner,
     lizard_runner,
     pylint_runner,
     radon_runner,
     semgrep_runner,
+    sql_checks,
+    sql_runner,
+    yaml_runner,
 )
 from app.analyzers.runner import AnalyzerError
 from app.languages import SPECS, Language, LanguageSpec
@@ -23,7 +28,11 @@ from app.scoring import score
 # Each analyzer module exposes NAME and run(code, spec) -> list[Issue].
 ANALYZERS = {
     module.NAME: module
-    for module in [pylint_runner, bandit_runner, radon_runner, lizard_runner, semgrep_runner]
+    for module in [
+        pylint_runner, bandit_runner, radon_runner,  # Python
+        lizard_runner, semgrep_runner,  # most other languages
+        sql_runner, sql_checks, yaml_runner, json_runner, css_runner,  # SQL and data/markup
+    ]
 }
 
 
@@ -56,7 +65,7 @@ def run_analyzers(code: str, spec: LanguageSpec) -> tuple[list[Issue], dict[str,
     Threads are enough here: each analyzer spends its time waiting on its own subprocess,
     so total latency is roughly the slowest tool instead of the sum of all of them.
     """
-    analyzers = [ANALYZERS[name] for name in spec.analyzers if name in ANALYZERS]
+    analyzers = [ANALYZERS[name] for name in spec.analyzers]
     issues: list[Issue] = []
     errors: dict[str, str] = {}
     if not analyzers:

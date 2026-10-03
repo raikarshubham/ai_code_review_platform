@@ -33,7 +33,7 @@ def all_rules():
 
 
 # Rule packs still being written; this set must be empty when multi-language support is done.
-PENDING = {Language.YAML, Language.JSON}
+PENDING: set[Language] = set()
 
 
 def test_every_semgrep_language_has_a_rule_file():

@@ -1,0 +1,39 @@
+# YAML rules (config files, docker-compose, Kubernetes, CI). Tests: yaml.yaml next to this file.
+rules:
+  - id: yaml-hardcoded-secret
+    languages: [yaml]
+    severity: ERROR
+    message: >-
+      Credential stored in a YAML file. Use an environment variable reference, a Kubernetes
+      Secret, or your CI's secret store instead.
+    metadata: {category: security, severity: high, cwe: "CWE-798"}
+    patterns:
+      - pattern: '$K: $V'
+      - metavariable-regex:
+          metavariable: $K
+          regex: (?i)^(password|passwd|pwd|secret|client_?secret|api_?key|access_?token|auth_?token|private_?key|db_?password)$
+      # Skip empty values, nulls and references like ${VAR}, $VAR or {{ secrets.X }}.
+      - metavariable-regex:
+          metavariable: $V
+          regex: ^(?!["']?(\$|\{\{|<)|null$|~$|""$|''$).+
+
+  - id: yaml-privileged-container
+    languages: [yaml]
+    severity: ERROR
+    message: >-
+      privileged: true gives the container full access to the host (devices, kernel
+      capabilities). Grant only the specific capabilities it needs.
+    metadata: {category: security, severity: high, cwe: "CWE-250"}
+    pattern: 'privileged: true'
+
+  - id: yaml-unpinned-image
+    languages: [yaml]
+    severity: INFO
+    message: >-
+      Image uses the :latest tag, so deployments aren't reproducible and can change under you.
+      Pin a version tag or a digest.
+    metadata: {category: smell, severity: low}
+    patterns:
+      - pattern: 'image: $IMG'
+      # metavariable-regex is left-anchored (like Python's re.match), hence the leading .*
+      - metavariable-regex: {metavariable: $IMG, regex: '.*:latest["'']?$'}

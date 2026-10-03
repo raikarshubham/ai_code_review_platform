@@ -1,0 +1,27 @@
+# Test fixture for yaml.yml.
+services:
+  web:
+    # ruleid: yaml-unpinned-image
+    image: nginx:latest
+    # ruleid: yaml-privileged-container
+    privileged: true
+    environment:
+      # ruleid: yaml-hardcoded-secret
+      password: hunter2
+      # ok: yaml-hardcoded-secret
+      db_password: ${DB_PASSWORD}
+  db:
+    # ok: yaml-unpinned-image
+    image: postgres:16.4
+    # ok: yaml-privileged-container
+    privileged: false
+
+app:
+  # ruleid: yaml-hardcoded-secret
+  api_key: "sk-live-1234567890"
+  # ok: yaml-hardcoded-secret
+  secret: "{{ secrets.APP_SECRET }}"
+  # ok: yaml-hardcoded-secret
+  access_token: ""
+  # ok: yaml-hardcoded-secret
+  username: admin

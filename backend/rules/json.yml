@@ -1,0 +1,20 @@
+# JSON rules. Tests: json.json next to this file (Semgrep's JSON parser accepts // comments,
+# which our fixture annotations need; real JSON input doesn't have them).
+rules:
+  - id: json-hardcoded-secret
+    languages: [json]
+    severity: ERROR
+    message: >-
+      Credential stored in a JSON file. Config files get committed, copied and logged; load
+      secrets from environment variables or a secrets manager instead.
+    metadata: {category: security, severity: high, cwe: "CWE-798"}
+    # In JSON, $K and $V bind *with* their quotes ("password"), so the regexes allow them.
+    patterns:
+      - pattern: '$K: $V'
+      - metavariable-regex:
+          metavariable: $K
+          regex: (?i)^"(password|passwd|pwd|secret|client_?secret|api_?key|access_?token|auth_?token|private_?key|db_?password|connection_?string)"$
+      # Only non-empty strings, skipping references like ${VAR}, $VAR or {{ secrets.X }}.
+      - metavariable-regex:
+          metavariable: $V
+          regex: ^"(?!\$|\{\{|<)[^"]+"$

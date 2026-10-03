@@ -54,9 +54,10 @@ rules:
           - pattern: $DB.$METHOD($X + "...", ...)
           - pattern: $DB.$METHOD(`...${$X}...`, ...)
       - metavariable-regex: {metavariable: $METHOD, regex: '^(query|execute|raw|exec|run|all|get)$'}
+      # metavariable-regex is left-anchored (like Python's re.match), hence the leading .*
       - metavariable-regex:
           metavariable: $DB
-          regex: (?i)(db|database|conn|connection|client|pool|knex|sequelize|pg|mysql|sqlite)
+          regex: (?i).*(db|database|conn|connection|client|pool|knex|sequelize|pg|mysql|sqlite)
 
   - id: js-eval
     languages: [javascript, typescript]
