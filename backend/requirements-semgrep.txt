@@ -1,0 +1,3 @@
+# Semgrep lives in its own venv (.venv-semgrep): it pins opentelemetry-api~=1.37, which conflicts
+# with FastAPI's opentelemetry-api>=1.44. We only call it as a CLI subprocess, so isolation is free.
+semgrep>=1.100
