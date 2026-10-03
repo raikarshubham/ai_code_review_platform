@@ -18,11 +18,12 @@ def test_health():
 
 
 def test_analyze_valid_code_returns_clean_result():
-    response = client.post("/analyze", json={"code": "x = 1\nprint(x)\n"})
+    response = client.post("/analyze", json={"code": "def add(a, b):\n    return a + b\n"})
     assert response.status_code == 200
     body = response.json()
     assert body["issues"] == []
     assert body["score"] == 100
+    assert body["tool_errors"] == {}
     assert set(body["summary"]) == {"critical", "high", "medium", "low", "info"}
     assert body["ai_review"] == {"enabled": False, "error": None}
 

@@ -58,4 +58,8 @@ class AnalyzeResponse(BaseModel):
     issues: list[Issue]
     score: int = Field(ge=0, le=100)
     summary: dict[Severity, int] = Field(description="Issue count per severity")
+    tool_errors: dict[str, str] = Field(
+        default_factory=dict,
+        description="Analyzers that failed (tool -> reason). Other tools' results are still returned.",
+    )
     ai_review: AIReview = Field(default_factory=AIReview)

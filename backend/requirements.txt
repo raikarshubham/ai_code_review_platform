@@ -1,2 +1,5 @@
 fastapi>=0.115
 uvicorn[standard]>=0.30
+pylint>=3.3
+bandit>=1.8
+radon>=6.0

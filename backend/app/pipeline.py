@@ -1,12 +1,17 @@
-"""Analysis pipeline: static analyzers -> normalize -> AI review -> score.
+"""Analysis pipeline: syntax check -> static analyzers (parallel) -> normalize -> score.
 
-Day 1 only does a syntax check. Pylint/Bandit (Day 2), Radon + scoring (Day 3) and the
-LLM reviewer (Day 4) plug in here without changing the API contract.
+The LLM reviewer (Day 4) plugs in after the static analyzers without changing the API contract.
 """
 
 import ast
+from concurrent.futures import ThreadPoolExecutor
 
+from app.analyzers import bandit_runner, pylint_runner
+from app.analyzers.runner import AnalyzerError
 from app.schemas import AnalyzeResponse, Category, Issue, Severity
+
+# Each analyzer module exposes NAME and run(code) -> list[Issue].
+ANALYZERS = [pylint_runner, bandit_runner]
 
 
 def check_syntax(code: str) -> Issue | None:
@@ -30,6 +35,24 @@ def check_syntax(code: str) -> Issue | None:
     return None
 
 
+def run_analyzers(code: str) -> tuple[list[Issue], dict[str, str]]:
+    """Run every analyzer in parallel; a failing tool is reported, not fatal.
+
+    Threads are enough here: each analyzer spends its time waiting on its own subprocess,
+    so total latency is roughly the slowest tool instead of the sum of all of them.
+    """
+    issues: list[Issue] = []
+    errors: dict[str, str] = {}
+    with ThreadPoolExecutor(max_workers=len(ANALYZERS)) as pool:
+        futures = {analyzer.NAME: pool.submit(analyzer.run, code) for analyzer in ANALYZERS}
+        for name, future in futures.items():
+            try:
+                issues.extend(future.result())
+            except AnalyzerError as exc:
+                errors[name] = str(exc)
+    return issues, errors
+
+
 def summarize(issues: list[Issue]) -> dict[Severity, int]:
     counts = {severity: 0 for severity in Severity}
     for issue in issues:
@@ -39,9 +62,14 @@ def summarize(issues: list[Issue]) -> dict[Severity, int]:
 
 def analyze(code: str) -> AnalyzeResponse:
     syntax_issue = check_syntax(code)
-    issues = [syntax_issue] if syntax_issue else []
+    if syntax_issue:
+        return AnalyzeResponse(issues=[syntax_issue], score=0, summary=summarize([syntax_issue]))
 
-    # Placeholder score until the real size-scaled scorer lands on Day 3.
-    score = 0 if syntax_issue else 100
+    issues, tool_errors = run_analyzers(code)
 
-    return AnalyzeResponse(issues=issues, score=score, summary=summarize(issues))
+    # Placeholder score until the size-scaled scorer lands on Day 3.
+    score = 100 if not issues else 50
+
+    return AnalyzeResponse(
+        issues=issues, score=score, summary=summarize(issues), tool_errors=tool_errors
+    )
