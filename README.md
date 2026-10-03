@@ -51,13 +51,29 @@ for the backend settings (LLM provider and CORS origins).
 | Method | Path       | Body                                  | Returns                                      |
 |--------|------------|---------------------------------------|----------------------------------------------|
 | GET    | `/health`  | none                                  | `{"status": "ok"}`                           |
-| POST   | `/analyze` | `{"code": "...", "filename": "x.py"}` | `{issues, score, summary, ai_review}`        |
+| POST   | `/analyze` | `{"code": "...", "filename": "x.py"}` | `{issues, score, summary, tool_errors, ai_review}` |
+
+The three analyzers run in parallel. If one crashes or times out (20 s), its error goes in
+`tool_errors` and the other tools' results are still returned.
+
+## Scoring
+
+```
+weights = critical 25, high 10, medium 4, low 1, info 0
+size    = max(1, sqrt(lines_of_code / 50))
+score   = clamp(100 - sum(weights) / size, 0, 100)
+any critical issue caps the score at 50
+```
+
+Bigger files get a gentler penalty, but less than linearly. The critical cap means one SQL
+injection can't be diluted by a large file. Before scoring, findings that several tools
+report (for example `eval` from both Pylint and Bandit) are merged into one.
 
 ## Roadmap
 
 - [x] Day 1: Repo setup, FastAPI `/health` + `/analyze`, React shell
-- [ ] Day 2: Pylint + Bandit runners, JSON output parsed
-- [ ] Day 3: Radon, `Issue` normalization, dedupe, sort, score, tests on `samples/buggy.py`
+- [x] Day 2: Pylint + Bandit runners, JSON output parsed
+- [x] Day 3: Radon, `Issue` normalization, dedupe, sort, score, tests on `samples/buggy.py`
 - [ ] Day 4: LLM client + reviewer prompt + validation
 - [ ] Day 5: Retries, rate limits, chunking, fallback; `scripts/check_llm.py`
 - [ ] Day 6: Prompt tuning on 10-15 buggy snippets
