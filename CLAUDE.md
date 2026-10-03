@@ -1,0 +1,68 @@
+# AI Code Review & Bug Detection Platform
+
+A developer tool that analyzes Python code for bugs, security vulnerabilities, code smells
+and complexity issues, and gives AI-written explanations and fix suggestions.
+This is a portfolio project for campus placements. I need to understand and explain every
+part of it in interviews, so explain non-obvious decisions as you go, and keep code readable
+over clever.
+
+## Core design: hybrid, not LLM-only
+
+1. **Static analysis first** (deterministic and reliable): Pylint (bugs, smells), Bandit
+   (security), Radon (complexity). Run them as subprocesses on a temp file with a timeout.
+   Never execute the submitted code.
+2. **Normalize** every tool's output into one `Issue` model:
+   `tool, rule_id, category (security|bug|smell|complexity|style), severity
+   (critical|high|medium|low|info), line, end_line, message, symbol`.
+3. **AI review layer**: send line-numbered code plus static findings to an LLM and get JSON back:
+   confirm or reject each finding (false-positive filtering), add logic bugs the tools missed,
+   and explain each issue with a fix.
+4. **Score** 0-100, with penalties scaled by code size.
+
+## Rules for the AI layer
+- Use free LLMs through one OpenAI-compatible client (httpx), configured with `.env`:
+  `LLM_PROVIDER=gemini|groq|ollama|off`, `LLM_API_KEY`, optional `LLM_MODEL`.
+  Defaults: gemini -> `gemini-2.5-flash` at `https://generativelanguage.googleapis.com/v1beta/openai`,
+  groq -> `llama-3.3-70b-versatile` at `https://api.groq.com/openai/v1`.
+- Validate everything the model returns. Drop unknown finding ids, out-of-range line numbers,
+  and style-category issues.
+- The model may never dismiss a **critical** security finding as a false positive.
+- False positives stay in the response but don't count toward the score.
+- Retry once on invalid JSON. Back off on HTTP 429 using Retry-After. If the LLM fails, return
+  the static results with an `ai_review.error` message instead of failing the request.
+- For long files, split into chunks by top-level function/class using `ast`.
+- Don't send info-level findings to the LLM, to save free-tier quota.
+- Tests must never call a real LLM. Use `httpx.MockTransport`.
+
+## Stack
+- Backend: Python 3.11, FastAPI, Pydantic v2, pytest. Layout: `backend/app/{main,pipeline,schemas}.py`,
+  `backend/app/analyzers/`, `backend/app/llm/`, `backend/tests/`, `backend/samples/buggy.py`.
+- Frontend: React + Vite (Monaco editor from Day 8).
+- Later: PostgreSQL, Docker, deploy to Render or Railway (backend) and Vercel (frontend).
+
+## Severity calibration
+Bandit's defaults understate real risk. Override them: shell injection, `os.system` and SQL
+injection are critical; pickle, yaml.load, eval, exec and hardcoded passwords are high;
+md5/sha1 is medium; "imported pickle/subprocess" warnings are info.
+Treat these Pylint warnings as high-severity bugs: mutable default argument (W0102) and bare except (W0702).
+
+## Build plan (2-3 hours a day; do one day per session)
+- Day 1: repo setup, FastAPI `/health` + `/analyze`, React shell
+- Day 2: Pylint + Bandit runners, JSON output parsed
+- Day 3: Radon, `Issue` normalization, dedupe, sort, score, tests on `samples/buggy.py`
+- Day 4: LLM client + reviewer prompt + validation
+- Day 5: retries, rate limits, chunking, fallback; `scripts/check_llm.py` end-to-end check
+- Day 6: tune the prompt on 10-15 buggy snippets. Key target: catch `process()` in
+  samples/buggy.py returning `result`, which is unbound when the try block raises
+  (Pylint misses this)
+- Day 7: buffer
+- Day 8-10: Monaco editor, inline severity annotations, side-by-side fix diffs
+- Day 11-12: dashboard (score, issues by category, complexity chart), PostgreSQL history
+- Day 13-14: Docker, deploy, README with architecture diagram, demo video
+
+## Working agreements
+- Start each day in plan mode, show me the plan, then build.
+- Write tests alongside code and run `pytest` before saying a step is done.
+- Commit after each working step with a clear message. Never commit `.env`.
+- At the end of each day, update the roadmap checkboxes in README.md and tell me
+  2-3 things from today I should be able to explain in an interview.
