@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from app.analyzers import bandit_runner, pylint_runner
+from app.analyzers import bandit_runner, pylint_runner, radon_runner
 from app.analyzers.runner import AnalyzerError
 
 
@@ -117,3 +117,56 @@ def test_bandit_end_line_from_line_range():
 def test_bandit_unexpected_output_raises(bad_output):
     with pytest.raises(AnalyzerError):
         bandit_runner.parse(bad_output)
+
+
+# --- Radon ------------------------------------------------------------------------------
+
+
+def radon_block(name, complexity, rank, block_type="function", lineno=1, **extra):
+    return {"type": block_type, "name": name, "complexity": complexity, "rank": rank,
+            "lineno": lineno, "endline": lineno + 10, "closures": [], **extra}
+
+
+def radon_output(blocks):
+    return json.dumps({"snippet.py": blocks})
+
+
+def test_radon_reports_only_above_threshold():
+    output = radon_output([
+        radon_block("simple", 3, "A"),
+        radon_block("borderline", 10, "B"),
+        radon_block("branchy", 14, "C", lineno=72),
+        radon_block("monster", 25, "D"),
+    ])
+    issues = {issue.message.split("'")[1]: issue for issue in radon_runner.parse(output)}
+    assert set(issues) == {"branchy", "monster"}
+    assert (issues["branchy"].severity, issues["branchy"].category) == ("medium", "complexity")
+    assert (issues["branchy"].line, issues["branchy"].end_line) == (72, 82)
+    assert issues["branchy"].rule_id == "CC-C"
+    assert issues["monster"].severity == "high"
+
+
+def test_radon_skips_class_entries_but_keeps_methods_and_closures():
+    method = radon_block("m", 12, "C", block_type="method", classname="Order")
+    closure = radon_block("inner", 15, "C")
+    output = radon_output([
+        # Radon repeats methods inside the class entry and at top level.
+        radon_block("Order", 30, "D", block_type="class", methods=[method]),
+        method,
+        radon_block("outer", 2, "A", closures=[closure]),
+    ])
+    messages = [issue.message for issue in radon_runner.parse(output)]
+    assert len(messages) == 2
+    assert any("'Order.m'" in message for message in messages)
+    assert any("'inner'" in message for message in messages)
+
+
+def test_radon_error_entry_raises():
+    with pytest.raises(AnalyzerError):
+        radon_runner.parse(json.dumps({"snippet.py": {"error": "invalid syntax"}}))
+
+
+@pytest.mark.parametrize("bad_output", ["not json", "{}", "[]"])
+def test_radon_unexpected_output_raises(bad_output):
+    with pytest.raises(AnalyzerError):
+        radon_runner.parse(bad_output)

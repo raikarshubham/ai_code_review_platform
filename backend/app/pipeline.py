@@ -1,4 +1,4 @@
-"""Analysis pipeline: syntax check -> static analyzers (parallel) -> normalize -> score.
+"""Analysis pipeline: syntax check -> static analyzers (parallel) -> dedupe -> sort -> score.
 
 The LLM reviewer (Day 4) plugs in after the static analyzers without changing the API contract.
 """
@@ -6,12 +6,14 @@ The LLM reviewer (Day 4) plugs in after the static analyzers without changing th
 import ast
 from concurrent.futures import ThreadPoolExecutor
 
-from app.analyzers import bandit_runner, pylint_runner
+from app.analyzers import bandit_runner, pylint_runner, radon_runner
 from app.analyzers.runner import AnalyzerError
+from app.postprocess import dedupe, sort_issues
 from app.schemas import AnalyzeResponse, Category, Issue, Severity
+from app.scoring import score
 
 # Each analyzer module exposes NAME and run(code) -> list[Issue].
-ANALYZERS = [pylint_runner, bandit_runner]
+ANALYZERS = [pylint_runner, bandit_runner, radon_runner]
 
 
 def check_syntax(code: str) -> Issue | None:
@@ -65,11 +67,12 @@ def analyze(code: str) -> AnalyzeResponse:
     if syntax_issue:
         return AnalyzeResponse(issues=[syntax_issue], score=0, summary=summarize([syntax_issue]))
 
-    issues, tool_errors = run_analyzers(code)
-
-    # Placeholder score until the size-scaled scorer lands on Day 3.
-    score = 100 if not issues else 50
+    raw_issues, tool_errors = run_analyzers(code)
+    issues = sort_issues(dedupe(raw_issues))
 
     return AnalyzeResponse(
-        issues=issues, score=score, summary=summarize(issues), tool_errors=tool_errors
+        issues=issues,
+        score=score(issues, code),
+        summary=summarize(issues),
+        tool_errors=tool_errors,
     )

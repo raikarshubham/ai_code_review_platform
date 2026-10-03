@@ -49,6 +49,31 @@ def test_buggy_sample_no_tool_errors(buggy_result):
     assert buggy_result.tool_errors == {}
 
 
+def test_eval_deduplicated_across_tools(buggy_result):
+    eval_issues = [issue for issue in buggy_result.issues if issue.rule_id in ("W0123", "B307")]
+    assert len(eval_issues) == 1
+    assert eval_issues[0].severity == "high"
+
+
+def test_radon_flags_classify_and_replaces_pylint_branches(buggy_result):
+    complexity = [issue for issue in buggy_result.issues if issue.tool == "radon"]
+    assert len(complexity) == 1
+    assert "'classify'" in complexity[0].message
+    assert find(buggy_result, "R0912") == []  # merged into the Radon finding
+
+
+def test_issues_sorted_most_severe_first(buggy_result):
+    order = ["critical", "high", "medium", "low", "info"]
+    ranks = [order.index(issue.severity) for issue in buggy_result.issues]
+    assert ranks == sorted(ranks)
+    assert buggy_result.issues[0].severity == "critical"
+
+
+def test_buggy_sample_scores_low(buggy_result):
+    assert buggy_result.score <= 50  # it has criticals, so the cap applies at minimum
+    assert buggy_result.summary["critical"] == 3
+
+
 def test_clean_code_has_no_issues():
     result = analyze(CLEAN_CODE)
     assert result.issues == []
