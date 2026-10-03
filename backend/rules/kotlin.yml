@@ -1,0 +1,83 @@
+# Kotlin rules. Tests: kotlin.kt next to this file.
+rules:
+  - id: kt-command-injection
+    languages: [kotlin]
+    severity: ERROR
+    message: >-
+      Command built from dynamic input. Pass a fixed program and an argument list to
+      ProcessBuilder; never route input through "sh -c".
+    metadata: {category: security, severity: critical, cwe: "CWE-78"}
+    pattern-either:
+      - pattern: Runtime.getRuntime().exec($A + $B)
+      - pattern: Runtime.getRuntime().exec("...${$X}...")
+      - pattern: ProcessBuilder("sh", "-c", $A + $B)
+      - pattern: ProcessBuilder("sh", "-c", "...${$X}...")
+
+  - id: kt-sql-injection
+    languages: [kotlin]
+    severity: ERROR
+    message: >-
+      SQL built with concatenation or a string template. Use ? placeholders with bound
+      arguments (rawQuery(sql, arrayOf(...)) / PreparedStatement).
+    metadata: {category: security, severity: critical, cwe: "CWE-89"}
+    patterns:
+      - pattern-either:
+          - pattern: $DB.$METHOD("..." + $X, ...)
+          - pattern: $DB.$METHOD("...${$X}...", ...)
+          - pattern: $DB.$METHOD("...$X...", ...)
+      - metavariable-regex:
+          metavariable: $METHOD
+          regex: ^(rawQuery|execSQL|executeQuery|executeUpdate|execute|prepareStatement)$
+
+  - id: kt-hardcoded-secret
+    languages: [kotlin]
+    severity: ERROR
+    message: >-
+      Hardcoded credential in source code (and in the APK). Load it from secure storage or your
+      backend; for build-time keys use local.properties, not the repo.
+    metadata: {category: security, severity: high, cwe: "CWE-798"}
+    patterns:
+      - pattern-either:
+          - pattern: val $K = "$V"
+          - pattern: var $K = "$V"
+          - pattern: const val $K = "$V"
+      - metavariable-regex:
+          metavariable: $K
+          regex: (?i)^(password|passwd|pwd|secret|clientSecret|apiKey|api_key|accessToken|authToken|privateKey)$
+      - metavariable-regex: {metavariable: $V, regex: '.+'}
+
+  - id: kt-weak-hash
+    languages: [kotlin]
+    severity: WARNING
+    message: >-
+      MD5/SHA-1 are broken for security use. Use SHA-256, or a password KDF for passwords.
+    metadata: {category: security, severity: medium, cwe: "CWE-328"}
+    patterns:
+      - pattern: MessageDigest.getInstance("$ALG")
+      - metavariable-regex: {metavariable: $ALG, regex: '(?i)^(md5|md2|sha1|sha-1)$'}
+
+  - id: kt-force-unwrap
+    languages: [kotlin]
+    severity: INFO
+    message: >-
+      !! throws NullPointerException when the value is null. Use ?., ?: or an explicit check.
+    metadata: {category: bug, severity: low, cwe: "CWE-476"}
+    pattern: $X!!
+
+  - id: kt-empty-catch
+    languages: [kotlin]
+    severity: WARNING
+    message: >-
+      Empty catch block silently swallows the exception. Log it, handle it, or rethrow.
+    metadata: {category: bug, severity: medium, cwe: "CWE-390"}
+    pattern: |
+      try { ... } catch ($E: $T) {}
+
+  - id: kt-webview-js-interface
+    languages: [kotlin]
+    severity: WARNING
+    message: >-
+      addJavascriptInterface exposes Kotlin methods to any JavaScript loaded in the WebView.
+      Only use it with trusted content and annotate exposed methods with @JavascriptInterface.
+    metadata: {category: security, severity: medium, cwe: "CWE-749"}
+    pattern: $W.addJavascriptInterface(...)

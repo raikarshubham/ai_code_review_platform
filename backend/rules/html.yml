@@ -1,0 +1,67 @@
+# HTML rules. Tests: html.html next to this file.
+# Semgrep's HTML parser is experimental, so these use pattern-regex, which is robust on any
+# markup and easy to reason about. Each regex is anchored to one tag to avoid spanning lines.
+rules:
+  - id: html-javascript-url
+    languages: [html]
+    severity: WARNING
+    message: >-
+      javascript: URL in href/src runs script on click and defeats Content-Security-Policy.
+      Use an event listener in a script file instead.
+    metadata: {category: security, severity: medium, cwe: "CWE-79"}
+    pattern-regex: >-
+      (?i)\b(href|src|action)\s*=\s*["']\s*javascript:
+
+  - id: html-insecure-resource
+    languages: [html]
+    severity: WARNING
+    message: >-
+      Script, stylesheet or form loaded over plain http://. It can be modified in transit
+      (and browsers block it as mixed content on https pages). Use https://.
+    metadata: {category: security, severity: medium, cwe: "CWE-319"}
+    pattern-either:
+      - pattern-regex: >-
+          (?i)<script\b[^>]*\bsrc\s*=\s*["']http://
+      - pattern-regex: >-
+          (?i)<link\b[^>]*\bhref\s*=\s*["']http://[^>]*>
+      - pattern-regex: >-
+          (?i)<form\b[^>]*\baction\s*=\s*["']http://
+
+  - id: html-target-blank-without-noopener
+    languages: [html]
+    severity: INFO
+    message: >-
+      target="_blank" without rel="noopener" lets the opened page control this tab via
+      window.opener (reverse tabnabbing) in older browsers. Add rel="noopener noreferrer".
+    metadata: {category: security, severity: low, cwe: "CWE-1022"}
+    pattern-regex: >-
+      (?i)<a\b(?![^>]*\brel\s*=\s*["'][^"']*\bnoopener)[^>]*\btarget\s*=\s*["']_blank["'][^>]*>
+
+  - id: html-inline-event-handler
+    languages: [html]
+    severity: INFO
+    message: >-
+      Inline event handler (onclick=, onload=, ...) mixes script into markup and is blocked by
+      a strict Content-Security-Policy. Attach listeners from a script file.
+    metadata: {category: smell, severity: low}
+    pattern-regex: >-
+      (?i)<[a-z][^>]*\son[a-z]+\s*=\s*["'][^>]*>
+
+  - id: html-img-missing-alt
+    languages: [html]
+    severity: INFO
+    message: >-
+      Image without an alt attribute: screen readers can't describe it. Add alt="description",
+      or alt="" for purely decorative images.
+    metadata: {category: style, severity: info}
+    pattern-regex: >-
+      (?i)<img\b(?![^>]*\balt\s*=)[^>]*>
+
+  - id: html-password-autocomplete
+    languages: [html]
+    severity: INFO
+    message: >-
+      Password field submitted over a plain-http form action. Credentials travel unencrypted.
+    metadata: {category: security, severity: high, cwe: "CWE-319"}
+    pattern-regex: >-
+      (?is)<form\b[^>]*\baction\s*=\s*["']http://[^>]*>(?:(?!</form>).)*<input\b[^>]*\btype\s*=\s*["']password["']

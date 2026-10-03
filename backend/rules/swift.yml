@@ -1,0 +1,75 @@
+# Swift rules. Tests: swift.swift next to this file.
+rules:
+  - id: swift-sql-injection
+    languages: [swift]
+    severity: ERROR
+    message: >-
+      SQL built by string concatenation passed to SQLite. Use sqlite3_prepare_v2 with ?
+      placeholders and sqlite3_bind_* for the values.
+    metadata: {category: security, severity: critical, cwe: "CWE-89"}
+    # <... ...> finds the concatenation anywhere in the argument: "a" + x + "b" parses as
+    # ("a" + x) + "b", whose top-level + has no string literal on its left.
+    pattern-either:
+      - pattern: sqlite3_exec($DB, <... "..." + $X ...>, ...)
+      - pattern: sqlite3_prepare_v2($DB, <... "..." + $X ...>, ...)
+      - pattern: $DB.execute(<... "..." + $X ...>, ...)
+
+  - id: swift-hardcoded-secret
+    languages: [swift]
+    severity: ERROR
+    message: >-
+      Hardcoded credential compiled into the app (extractable from the binary). Store it in
+      the Keychain or fetch it from your backend.
+    metadata: {category: security, severity: high, cwe: "CWE-798"}
+    patterns:
+      - pattern-either:
+          - pattern: let $K = "$V"
+          - pattern: var $K = "$V"
+          - pattern: 'let $K: String = "$V"'
+      - metavariable-regex:
+          metavariable: $K
+          regex: (?i)^(password|passwd|pwd|secret|clientSecret|apiKey|api_key|accessToken|authToken|privateKey)$
+      - metavariable-regex: {metavariable: $V, regex: '.+'}
+
+  - id: swift-weak-hash
+    languages: [swift]
+    severity: WARNING
+    message: >-
+      MD5/SHA-1 are broken for security use. Use SHA256 from CryptoKit.
+    metadata: {category: security, severity: medium, cwe: "CWE-328"}
+    pattern-either:
+      - pattern: Insecure.MD5.hash(...)
+      - pattern: Insecure.SHA1.hash(...)
+      - pattern: CC_MD5(...)
+      - pattern: CC_SHA1(...)
+
+  - id: swift-js-injection
+    languages: [swift]
+    severity: ERROR
+    message: >-
+      JavaScript built from dynamic input evaluated in a web view (script injection). Pass data
+      via callAsyncJavaScript arguments or JSON-encode it.
+    metadata: {category: security, severity: high, cwe: "CWE-94"}
+    pattern-either:
+      - pattern: $W.evaluateJavaScript("..." + $X, ...)
+      - pattern: $W.evaluateJavaScript($X + "...", ...)
+
+  - id: swift-insecure-http-url
+    languages: [swift]
+    severity: INFO
+    message: >-
+      Plain http:// URL: traffic can be read and modified in transit (and is blocked by App
+      Transport Security by default). Use https://.
+    metadata: {category: security, severity: low, cwe: "CWE-319"}
+    patterns:
+      - pattern: 'URL(string: "$U")'
+      - metavariable-regex: {metavariable: $U, regex: '^http://'}
+
+  - id: swift-force-try
+    languages: [swift]
+    severity: INFO
+    message: >-
+      try! crashes the app if the call throws. Use do/catch or try? and handle the failure.
+    metadata: {category: bug, severity: low, cwe: "CWE-248"}
+    # Semgrep's Swift AST doesn't distinguish try! from try?, so match the token itself.
+    pattern-regex: '\btry!'

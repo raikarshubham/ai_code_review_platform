@@ -1,0 +1,106 @@
+# Ruby rules. Tests: ruby.rb next to this file.
+rules:
+  - id: rb-command-injection
+    languages: [ruby]
+    severity: ERROR
+    message: >-
+      Shell command with interpolated or concatenated input. Pass arguments separately, e.g.
+      system("ls", path), so no shell parses them.
+    metadata: {category: security, severity: critical, cwe: "CWE-78"}
+    pattern-either:
+      - pattern: system("...#{$X}...")
+      - pattern: exec("...#{$X}...")
+      - pattern: "`...#{$X}...`"
+      - pattern: '%x(...#{$X}...)'
+      - pattern: system("..." + $X)
+      - pattern: Open3.capture2("...#{$X}...", ...)
+      - pattern: IO.popen("...#{$X}...", ...)
+
+  - id: rb-sql-injection
+    languages: [ruby]
+    severity: ERROR
+    message: >-
+      SQL with interpolated input. Use placeholders: where("name = ?", name) or a hash
+      condition where(name: name).
+    metadata: {category: security, severity: critical, cwe: "CWE-89"}
+    patterns:
+      - pattern-either:
+          - pattern: $M.$METHOD("...#{$X}...", ...)
+          - pattern: $M.$METHOD("..." + $X, ...)
+      - metavariable-regex:
+          metavariable: $METHOD
+          regex: ^(where|find_by_sql|execute|exec_query|select_all|order|having|joins|group|pluck|delete_all|update_all)$
+
+  - id: rb-eval
+    languages: [ruby]
+    severity: ERROR
+    message: >-
+      eval/instance_eval/class_eval on a dynamic string executes arbitrary Ruby code.
+    metadata: {category: security, severity: high, cwe: "CWE-95"}
+    patterns:
+      - pattern-either:
+          - pattern: eval($X, ...)
+          - pattern: $O.instance_eval($X, ...)
+          - pattern: $O.class_eval($X, ...)
+      - pattern-not: $F("...", ...)
+      - pattern-not: $O.$F("...", ...)
+
+  - id: rb-unsafe-deserialization
+    languages: [ruby]
+    severity: ERROR
+    message: >-
+      Marshal.load / YAML.load on untrusted data can instantiate arbitrary objects and run code.
+      Use JSON.parse or YAML.safe_load.
+    metadata: {category: security, severity: high, cwe: "CWE-502"}
+    pattern-either:
+      - pattern: Marshal.load(...)
+      - pattern: Marshal.restore(...)
+      - pattern: YAML.load(...)
+      - pattern: Psych.load(...)
+      - pattern: YAML.unsafe_load(...)
+
+  - id: rb-hardcoded-secret
+    languages: [ruby]
+    severity: ERROR
+    message: >-
+      Hardcoded credential in source code. Use ENV["..."] or Rails credentials.
+    metadata: {category: security, severity: high, cwe: "CWE-798"}
+    patterns:
+      - pattern: $K = "$V"
+      - metavariable-regex:
+          metavariable: $K
+          regex: (?i)^@?(password|passwd|pwd|secret|client_secret|api_key|access_token|auth_token|private_key|db_password)$
+      - metavariable-regex: {metavariable: $V, regex: '.+'}
+
+  - id: rb-weak-hash
+    languages: [ruby]
+    severity: WARNING
+    message: >-
+      MD5/SHA-1 are broken for security use. Use Digest::SHA256, or bcrypt for passwords.
+    metadata: {category: security, severity: medium, cwe: "CWE-328"}
+    pattern-either:
+      - pattern: Digest::MD5.$M(...)
+      - pattern: Digest::SHA1.$M(...)
+      - pattern: OpenSSL::Digest::MD5.new(...)
+      - pattern: OpenSSL::Digest::SHA1.new(...)
+
+  - id: rb-rescue-exception
+    languages: [ruby]
+    severity: WARNING
+    message: >-
+      rescue Exception also catches signals and exits (Interrupt, SystemExit, NoMemoryError).
+      Rescue StandardError (the default for bare rescue) or something more specific.
+    metadata: {category: bug, severity: high, cwe: "CWE-396"}
+    pattern-either:
+      - pattern: |
+          begin
+            ...
+          rescue Exception
+            ...
+          end
+      - pattern: |
+          begin
+            ...
+          rescue Exception => $E
+            ...
+          end

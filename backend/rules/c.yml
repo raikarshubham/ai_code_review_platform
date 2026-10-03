@@ -1,0 +1,98 @@
+# C and C++ rules (C++ uses this file too). Tests: c.c and c.cpp next to this file.
+rules:
+  - id: c-command-injection
+    languages: [c, cpp]
+    severity: ERROR
+    message: >-
+      system()/popen() with a non-constant command runs it through the shell, so input can
+      inject extra commands. Use execv-family calls with an argument array.
+    metadata: {category: security, severity: critical, cwe: "CWE-78"}
+    patterns:
+      - pattern-either:
+          - pattern: system($CMD)
+          - pattern: popen($CMD, ...)
+          - pattern: std::system($CMD)
+      - pattern-not: system("...")
+      - pattern-not: popen("...", ...)
+      - pattern-not: std::system("...")
+
+  - id: c-gets
+    languages: [c, cpp]
+    severity: ERROR
+    message: >-
+      gets() can't limit input length and always allows a buffer overflow (it was removed in
+      C11). Use fgets(buf, sizeof buf, stdin).
+    metadata: {category: security, severity: high, cwe: "CWE-242"}
+    pattern: gets(...)
+
+  - id: c-unbounded-scanf
+    languages: [c, cpp]
+    severity: ERROR
+    message: >-
+      scanf("%s") reads an unbounded string and can overflow the buffer. Give a width, e.g.
+      "%63s" for a 64-byte buffer.
+    metadata: {category: security, severity: high, cwe: "CWE-120"}
+    pattern-either:
+      - pattern: scanf("%s", ...)
+      - pattern: fscanf($F, "%s", ...)
+
+  - id: c-unsafe-string-copy
+    languages: [c, cpp]
+    severity: WARNING
+    message: >-
+      strcpy/strcat/sprintf don't check the destination size and can overflow it. Use
+      snprintf, or strncpy/strncat with an explicit size (or std::string in C++).
+    metadata: {category: security, severity: medium, cwe: "CWE-120"}
+    pattern-either:
+      - pattern: strcpy(...)
+      - pattern: strcat(...)
+      - pattern: sprintf(...)
+      - pattern: vsprintf(...)
+
+  - id: c-format-string
+    languages: [c, cpp]
+    severity: ERROR
+    message: >-
+      Non-constant format string. If the value contains %n or %s an attacker can read or write
+      memory. Use printf("%s", value).
+    metadata: {category: security, severity: high, cwe: "CWE-134"}
+    patterns:
+      - pattern-either:
+          - pattern: printf($FMT)
+          - pattern: fprintf($F, $FMT)
+          - pattern: syslog($P, $FMT)
+      - pattern-not: printf("...")
+      - pattern-not: fprintf($F, "...")
+      - pattern-not: syslog($P, "...")
+
+  - id: c-hardcoded-secret
+    languages: [c, cpp]
+    severity: ERROR
+    message: >-
+      Hardcoded credential compiled into the binary (readable with `strings`). Load it from
+      configuration or the environment.
+    metadata: {category: security, severity: high, cwe: "CWE-798"}
+    patterns:
+      - pattern-either:
+          - pattern: char *$K = "$V";
+          - pattern: const char *$K = "$V";
+          - pattern: char $K[] = "$V";
+          - pattern: const char $K[] = "$V";
+      - metavariable-regex:
+          metavariable: $K
+          regex: (?i)^(password|passwd|pwd|secret|api_?key|access_?token|auth_?token|private_?key|db_?password)$
+      - metavariable-regex: {metavariable: $V, regex: '.+'}
+
+  - id: c-weak-hash
+    languages: [c, cpp]
+    severity: WARNING
+    message: >-
+      MD5/SHA-1 are broken for security use. Use SHA-256 (EVP_sha256), or a password KDF.
+    metadata: {category: security, severity: medium, cwe: "CWE-328"}
+    pattern-either:
+      - pattern: MD5(...)
+      - pattern: MD5_Init(...)
+      - pattern: SHA1(...)
+      - pattern: SHA1_Init(...)
+      - pattern: EVP_md5()
+      - pattern: EVP_sha1()

@@ -1,0 +1,84 @@
+# C# rules. Tests: csharp.cs next to this file.
+rules:
+  - id: cs-command-injection
+    languages: [csharp]
+    severity: ERROR
+    message: >-
+      Process started with a command built from dynamic input. Use a fixed FileName and pass
+      user values through ArgumentList, never through "cmd /c".
+    metadata: {category: security, severity: critical, cwe: "CWE-78"}
+    pattern-either:
+      - pattern: Process.Start($A + $B)
+      - pattern: Process.Start($P, $A + $B)
+      - pattern: Process.Start($P, String.Format(...))
+      - pattern: Process.Start($P, string.Format(...))
+
+  - id: cs-sql-injection
+    languages: [csharp]
+    severity: ERROR
+    message: >-
+      SQL built by string concatenation or String.Format. Use SqlParameter / parameterized
+      queries (or FromSqlInterpolated in EF Core).
+    metadata: {category: security, severity: critical, cwe: "CWE-89"}
+    pattern-either:
+      - pattern: new SqlCommand("..." + $X, ...)
+      - pattern: new SqlCommand($X + "...", ...)
+      - pattern: new SqlCommand(String.Format(...), ...)
+      - pattern: new SqlCommand(string.Format(...), ...)
+      - pattern: $CMD.CommandText = "..." + $X
+      - patterns:
+          - pattern-either:
+              - pattern: $DB.$METHOD("..." + $X, ...)
+              - pattern: $DB.$METHOD(String.Format(...), ...)
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: ^(ExecuteSqlRaw|FromSqlRaw|ExecuteSqlCommand|SqlQuery|ExecuteQuery|Query|Execute)$
+
+  - id: cs-hardcoded-secret
+    languages: [csharp]
+    severity: ERROR
+    message: >-
+      Hardcoded credential in source code. Use configuration (appsettings + user secrets) or an
+      environment variable.
+    metadata: {category: security, severity: high, cwe: "CWE-798"}
+    patterns:
+      - pattern: string $K = "$V";
+      - metavariable-regex:
+          metavariable: $K
+          regex: (?i)^_?(password|passwd|pwd|secret|clientSecret|apiKey|api_key|accessToken|authToken|privateKey|connectionPassword)$
+      - metavariable-regex: {metavariable: $V, regex: '.+'}
+
+  - id: cs-weak-hash
+    languages: [csharp]
+    severity: WARNING
+    message: >-
+      MD5/SHA-1 are broken for security use. Use SHA256, or a password hasher (PBKDF2,
+      bcrypt, argon2) for passwords.
+    metadata: {category: security, severity: medium, cwe: "CWE-328"}
+    pattern-either:
+      - pattern: MD5.Create()
+      - pattern: SHA1.Create()
+      - pattern: new MD5CryptoServiceProvider()
+      - pattern: new SHA1CryptoServiceProvider()
+      - pattern: new SHA1Managed()
+
+  - id: cs-binary-formatter
+    languages: [csharp]
+    severity: ERROR
+    message: >-
+      BinaryFormatter deserialization can execute arbitrary code and is obsolete. Use
+      System.Text.Json or another safe serializer.
+    metadata: {category: security, severity: high, cwe: "CWE-502"}
+    pattern: new BinaryFormatter()
+
+  - id: cs-empty-catch
+    languages: [csharp]
+    severity: WARNING
+    message: >-
+      Empty catch block silently swallows the exception. Log it, handle it, or rethrow.
+    metadata: {category: bug, severity: medium, cwe: "CWE-390"}
+    pattern-either:
+      - pattern: |
+          try { ... } catch ($T $E) {}
+      - pattern: |
+          try { ... } catch {}

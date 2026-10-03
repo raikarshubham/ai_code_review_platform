@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<!-- Test fixture for html.yml. -->
+<html>
+<head>
+  <!-- ruleid: html-insecure-resource -->
+  <script src="http://cdn.example.com/lib.js"></script>
+  <!-- ok: html-insecure-resource -->
+  <script src="https://cdn.example.com/lib.js"></script>
+  <!-- ruleid: html-insecure-resource -->
+  <link rel="stylesheet" href="http://cdn.example.com/site.css">
+</head>
+<body>
+  <!-- ruleid: html-javascript-url -->
+  <a href="javascript:doThing()">Run</a>
+  <!-- ok: html-javascript-url -->
+  <a href="/docs">Docs</a>
+
+  <!-- ruleid: html-target-blank-without-noopener -->
+  <a href="https://example.com" target="_blank">External</a>
+  <!-- ok: html-target-blank-without-noopener -->
+  <a href="https://example.com" target="_blank" rel="noopener noreferrer">External</a>
+
+  <!-- ruleid: html-inline-event-handler -->
+  <button onclick="submitForm()">Send</button>
+  <!-- ok: html-inline-event-handler -->
+  <button id="send">Send</button>
+
+  <!-- ruleid: html-img-missing-alt -->
+  <img src="/logo.png">
+  <!-- ok: html-img-missing-alt -->
+  <img src="/logo.png" alt="Company logo">
+
+  <!-- ruleid: html-insecure-resource, html-password-autocomplete -->
+  <form action="http://example.com/login" method="post">
+    <input type="text" name="user">
+    <input type="password" name="pass">
+  </form>
+  <!-- ok: html-password-autocomplete -->
+  <form action="https://example.com/login" method="post">
+    <input type="password" name="pass">
+  </form>
+</body>
+</html>

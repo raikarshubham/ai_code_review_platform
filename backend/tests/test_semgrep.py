@@ -1,5 +1,7 @@
 import json
+import re
 import subprocess
+from collections import defaultdict
 from pathlib import Path
 
 import pytest
@@ -7,16 +9,13 @@ import yaml
 
 from app.analyzers import semgrep_runner
 from app.analyzers.runner import AnalyzerError
-from app.languages import SPECS, Language
+from app.languages import SPECS, Language, detect_language
 from app.pipeline import analyze
 from app.schemas import Category, Severity
 
 RULES_DIR = semgrep_runner.RULES_DIR
 RULE_FILES = sorted(RULES_DIR.glob("*.yml"))
-SEMGREP_CLI = next(
-    (p for p in (semgrep_runner.BACKEND_DIR / ".venv-semgrep").glob("*/semgrep*") if p.suffix in ("", ".exe")),
-    None,
-)
+FIXTURES = sorted(p for p in RULES_DIR.iterdir() if p.suffix != ".yml")
 
 needs_semgrep = pytest.mark.skipif(
     semgrep_runner.find_semgrep_core() is None,
@@ -34,10 +33,7 @@ def all_rules():
 
 
 # Rule packs still being written; this set must be empty when multi-language support is done.
-PENDING = {
-    Language.CSHARP, Language.RUST, Language.C, Language.CPP, Language.PHP, Language.RUBY,
-    Language.SWIFT, Language.KOTLIN, Language.HTML, Language.YAML, Language.JSON,
-}
+PENDING = {Language.YAML, Language.JSON}
 
 
 def test_every_semgrep_language_has_a_rule_file():
@@ -66,17 +62,76 @@ def test_every_rule_file_has_a_fixture():
         assert fixtures, f"{path.name} has no test fixture"
 
 
-@needs_semgrep
-@pytest.mark.skipif(SEMGREP_CLI is None, reason="semgrep CLI not found in backend/.venv-semgrep")
-def test_semgrep_rule_suite():
-    """Every `ruleid:` annotation must match and every `ok:` annotation must not."""
+# --- Rule fixtures, checked against the real engine ---------------------------------------
+#
+# Fixtures use Semgrep's annotation convention: a comment containing `ruleid: <id>` means the
+# next code line MUST match that rule, `ok: <id>` means it must NOT. We check these ourselves
+# with semgrep-core (the same engine path production uses) instead of `semgrep --test`, whose
+# CLI races on ~/.semgrep/settings.yml across threads on Windows and fails intermittently.
+
+ANNOTATION = re.compile(r"\b(ruleid|ok):\s*([\w-]+(?:\s*,\s*[\w-]+)*)")
+
+
+def fixture_annotations(fixture: Path) -> tuple[dict[str, set[int]], dict[str, set[int]]]:
+    """Return (must_match, must_not_match): rule id -> line numbers."""
+    must, must_not = defaultdict(set), defaultdict(set)
+    pending = []
+    for number, line in enumerate(fixture.read_text(encoding="utf-8").splitlines(), start=1):
+        found = ANNOTATION.search(line)
+        if found:
+            pending.append(found)
+            continue
+        for annotation in pending:
+            target = must if annotation.group(1) == "ruleid" else must_not
+            for rule_id in annotation.group(2).split(","):
+                target[rule_id.strip()].add(number)
+        pending = []
+    return must, must_not
+
+
+def engine_matches(rule_file: Path, fixture: Path) -> dict[str, set[int]]:
+    language = detect_language(fixture.name)
     completed = subprocess.run(
-        [str(SEMGREP_CLI), "--test", "--metrics=off", str(RULES_DIR)],
-        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=300,
+        [semgrep_runner.find_semgrep_core(), "-rules", str(rule_file),
+         "-lang", semgrep_runner.SEMGREP_LANG[language], "-json", str(fixture)],
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120,
     )
-    output = completed.stdout + completed.stderr
-    assert completed.returncode == 0, output
-    assert "All tests passed" in output, output
+    report = json.loads(completed.stdout[completed.stdout.find("{"):])
+    # Any engine error means a rule failed to load (and would silently never fire).
+    assert report["errors"] == [], [e.get("message", e)[:300] for e in report["errors"]]
+    matches = defaultdict(set)
+    for result in report["results"]:
+        matches[result["check_id"]].add(result["start"]["line"])
+    return matches
+
+
+def rule_file_for(fixture: Path) -> Path:
+    return RULES_DIR / f"{fixture.stem}.yml"
+
+
+@needs_semgrep
+@pytest.mark.parametrize("fixture", FIXTURES, ids=lambda p: p.name)
+def test_rule_fixture(fixture):
+    rule_ids = [rule["id"] for rule in yaml.safe_load(rule_file_for(fixture).read_text(encoding="utf-8"))["rules"]]
+    must, must_not = fixture_annotations(fixture)
+    actual = engine_matches(rule_file_for(fixture), fixture)
+
+    unknown = (set(must) | set(must_not)) - set(rule_ids)
+    assert not unknown, f"annotations for rules not in {rule_file_for(fixture).name}: {unknown}"
+    for rule_id in rule_ids:
+        missed = must[rule_id] - actual[rule_id]
+        unexpected = actual[rule_id] - must[rule_id]
+        assert not missed, f"{rule_id} should match lines {sorted(missed)}"
+        assert not unexpected, f"{rule_id} matched unannotated lines {sorted(unexpected)}"
+        assert not (must_not[rule_id] & actual[rule_id]), f"{rule_id} matched an `ok:` line"
+
+
+def test_every_rule_has_a_positive_test_case():
+    tested = set()
+    for fixture in FIXTURES:
+        tested |= set(fixture_annotations(fixture)[0])
+    untested = {rule["id"] for _, rule in all_rules()} - tested
+    assert not untested, f"rules with no `ruleid:` fixture line: {sorted(untested)}"
 
 
 # --- Parser (canned semgrep-core JSON) ---------------------------------------------------

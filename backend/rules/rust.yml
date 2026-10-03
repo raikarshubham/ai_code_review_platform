@@ -1,0 +1,85 @@
+# Rust rules. Tests: rust.rs next to this file.
+rules:
+  - id: rust-command-injection
+    languages: [rust]
+    severity: ERROR
+    message: >-
+      Shell command built with format!() passed to "sh -c". Run the program directly with
+      Command::new(program).arg(value) so input is never parsed by a shell.
+    metadata: {category: security, severity: critical, cwe: "CWE-78"}
+    pattern-either:
+      - pattern: Command::new("sh").arg("-c").arg(format!(...))
+      - pattern: Command::new("bash").arg("-c").arg(format!(...))
+      - pattern: Command::new("sh").args(["-c", &format!(...)])
+      - pattern: Command::new("cmd").arg("/C").arg(format!(...))
+
+  - id: rust-sql-injection
+    languages: [rust]
+    severity: ERROR
+    message: >-
+      SQL built with format!(). Use bind parameters (?1 / $1 with params![] or .bind()).
+    metadata: {category: security, severity: critical, cwe: "CWE-89"}
+    patterns:
+      - pattern-either:
+          - pattern: $C.$METHOD(&format!(...), ...)
+          - pattern: $C.$METHOD(format!(...), ...)
+          - pattern: sqlx::query(&format!(...))
+          - pattern: sqlx::query(format!(...))
+      - metavariable-regex:
+          metavariable: $METHOD
+          regex: ^(execute|query|query_row|query_map|prepare|execute_batch)$
+
+  - id: rust-hardcoded-secret
+    languages: [rust]
+    severity: ERROR
+    message: >-
+      Hardcoded credential in source code. Read it with std::env::var or a secrets manager.
+    metadata: {category: security, severity: high, cwe: "CWE-798"}
+    patterns:
+      - pattern-either:
+          - pattern: let $K = "$V";
+          - pattern: 'const $K: &str = "$V";'
+          - pattern: 'static $K: &str = "$V";'
+      - metavariable-regex:
+          metavariable: $K
+          regex: (?i)^(password|passwd|pwd|secret|client_secret|api_key|access_token|auth_token|private_key|db_password)$
+      - metavariable-regex: {metavariable: $V, regex: '.+'}
+
+  - id: rust-weak-hash
+    languages: [rust]
+    severity: WARNING
+    message: >-
+      MD5/SHA-1 are broken for security use. Use sha2::Sha256, or argon2/bcrypt for passwords.
+    metadata: {category: security, severity: medium, cwe: "CWE-328"}
+    pattern-either:
+      - pattern: md5::compute(...)
+      - pattern: Md5::new()
+      - pattern: Sha1::new()
+
+  - id: rust-tls-accept-invalid-certs
+    languages: [rust]
+    severity: ERROR
+    message: >-
+      Accepting invalid TLS certificates allows man-in-the-middle attacks.
+    metadata: {category: security, severity: high, cwe: "CWE-295"}
+    pattern-either:
+      - pattern: $B.danger_accept_invalid_certs(true)
+      - pattern: $B.danger_accept_invalid_hostnames(true)
+
+  - id: rust-unwrap
+    languages: [rust]
+    severity: INFO
+    message: >-
+      .unwrap() panics on None/Err and crashes the thread. Propagate with ?, handle the case,
+      or use .expect("reason") to document why it can't fail.
+    metadata: {category: bug, severity: low, cwe: "CWE-248"}
+    pattern: $X.unwrap()
+
+  - id: rust-unsafe-block
+    languages: [rust]
+    severity: INFO
+    message: >-
+      unsafe block opts out of the borrow checker's guarantees. Keep it minimal and document
+      the invariants (a // SAFETY: comment) so reviewers can verify it.
+    metadata: {category: security, severity: low, cwe: "CWE-119"}
+    pattern: unsafe { ... }
