@@ -1,0 +1,99 @@
+# Go rules. Tests: go.go next to this file.
+rules:
+  - id: go-command-injection
+    languages: [go]
+    severity: ERROR
+    message: >-
+      Shell command built from dynamic input. Call exec.Command with the program and separate
+      arguments instead of passing a string to "sh -c".
+    metadata: {category: security, severity: critical, cwe: "CWE-78"}
+    pattern-either:
+      - pattern: exec.Command($SH, "-c", $A + $B)
+      - pattern: exec.Command($SH, "-c", fmt.Sprintf(...))
+      - pattern: exec.CommandContext($CTX, $SH, "-c", $A + $B)
+      - pattern: exec.CommandContext($CTX, $SH, "-c", fmt.Sprintf(...))
+
+  - id: go-sql-injection
+    languages: [go]
+    severity: ERROR
+    message: >-
+      SQL built with fmt.Sprintf or concatenation. Use placeholders (? or $1) and pass the values
+      as arguments to Query/Exec.
+    metadata: {category: security, severity: critical, cwe: "CWE-89"}
+    patterns:
+      - pattern-either:
+          - pattern: $DB.$METHOD(fmt.Sprintf(...), ...)
+          - pattern: $DB.$METHOD($CTX, fmt.Sprintf(...), ...)
+          - pattern: $DB.$METHOD("..." + $X, ...)
+          - pattern: $DB.$METHOD($CTX, "..." + $X, ...)
+      - metavariable-regex:
+          metavariable: $METHOD
+          regex: ^(Query|QueryRow|Exec|QueryContext|QueryRowContext|ExecContext|Prepare|PrepareContext)$
+
+  - id: go-hardcoded-secret
+    languages: [go]
+    severity: ERROR
+    message: >-
+      Hardcoded credential in source code. Read it from the environment (os.Getenv) or a
+      secrets manager.
+    metadata: {category: security, severity: high, cwe: "CWE-798"}
+    patterns:
+      - pattern-either:
+          - pattern: $K := "$V"
+          - pattern: var $K = "$V"
+          - pattern: const $K = "$V"
+          - pattern: var $K string = "$V"
+      - metavariable-regex:
+          metavariable: $K
+          regex: (?i)^(password|passwd|pwd|secret|clientSecret|apiKey|api_key|accessToken|authToken|privateKey|dbPassword)$
+      - metavariable-regex: {metavariable: $V, regex: '.+'}
+
+  - id: go-weak-hash
+    languages: [go]
+    severity: WARNING
+    message: >-
+      MD5/SHA-1 are broken for security use. Use crypto/sha256, or bcrypt/argon2 for passwords.
+    metadata: {category: security, severity: medium, cwe: "CWE-328"}
+    pattern-either:
+      - pattern: md5.New()
+      - pattern: md5.Sum(...)
+      - pattern: sha1.New()
+      - pattern: sha1.Sum(...)
+
+  - id: go-tls-insecure-skip-verify
+    languages: [go]
+    severity: ERROR
+    message: >-
+      InsecureSkipVerify disables TLS certificate checks, allowing man-in-the-middle attacks.
+    metadata: {category: security, severity: high, cwe: "CWE-295"}
+    pattern: |
+      tls.Config{..., InsecureSkipVerify: true, ...}
+
+  - id: go-defer-in-loop
+    languages: [go]
+    severity: WARNING
+    message: >-
+      defer inside a loop only runs when the function returns, so resources (files, locks,
+      connections) pile up across iterations. Move the body into a function or close explicitly.
+    metadata: {category: bug, severity: medium, cwe: "CWE-404"}
+    pattern: |
+      for ... {
+        ...
+        defer $F(...)
+        ...
+      }
+
+  - id: go-discarded-error
+    languages: [go]
+    severity: INFO
+    message: >-
+      The error from this call is discarded with _. If it can fail, handle the error; if it
+      truly can't, add a comment explaining why.
+    metadata: {category: bug, severity: low, cwe: "CWE-391"}
+    patterns:
+      - pattern-either:
+          - pattern: $V, _ := $F(...)
+          - pattern: $V, _ = $F(...)
+      # Common (value, ok bool) idioms are not errors.
+      - pattern-not: $V, _ := $M[$K]
+      - pattern-not: $V, _ := $X.($T)

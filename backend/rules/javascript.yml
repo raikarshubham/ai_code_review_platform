@@ -1,0 +1,130 @@
+# JavaScript + TypeScript rules (TypeScript uses this file too).
+# metadata.severity / metadata.category use our scale (critical|high|medium|low|info).
+# Tests: javascript.js / javascript.ts next to this file (`// ruleid:` must match, `// ok:` must not).
+rules:
+  - id: js-command-injection
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      Shell command built from dynamic input passed to child_process. An attacker who controls
+      part of the string can run arbitrary commands. Use execFile/spawn with an argument array.
+    metadata: {category: security, severity: critical, cwe: "CWE-78"}
+    patterns:
+      - pattern-either:
+          - pattern: require('child_process').$EXEC($CMD, ...)
+          - patterns:
+              - pattern-inside: |
+                  $CP = require('child_process');
+                  ...
+              - pattern: $CP.$EXEC($CMD, ...)
+          - patterns:
+              - pattern-inside: |
+                  import $CP from 'child_process';
+                  ...
+              - pattern: $CP.$EXEC($CMD, ...)
+          - patterns:
+              - pattern-inside: |
+                  import * as $CP from 'child_process';
+                  ...
+              - pattern: $CP.$EXEC($CMD, ...)
+          - patterns:
+              - pattern-inside: |
+                  import { ..., $EXEC, ... } from 'child_process';
+                  ...
+              - pattern: $EXEC($CMD, ...)
+          - patterns:
+              - pattern-inside: |
+                  const { ..., $EXEC, ... } = require('child_process');
+                  ...
+              - pattern: $EXEC($CMD, ...)
+      - metavariable-regex: {metavariable: $EXEC, regex: '^(exec|execSync)$'}
+      - pattern-not: $F("...", ...)
+      - pattern-not: $O.$F("...", ...)
+
+  - id: js-sql-injection
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      SQL query built by string concatenation or a template literal. Use parameterized queries
+      (placeholders like ? or $1 with a values array).
+    metadata: {category: security, severity: critical, cwe: "CWE-89"}
+    patterns:
+      - pattern-either:
+          - pattern: $DB.$METHOD("..." + $X, ...)
+          - pattern: $DB.$METHOD($X + "...", ...)
+          - pattern: $DB.$METHOD(`...${$X}...`, ...)
+      - metavariable-regex: {metavariable: $METHOD, regex: '^(query|execute|raw|exec|run|all|get)$'}
+      - metavariable-regex:
+          metavariable: $DB
+          regex: (?i)(db|database|conn|connection|client|pool|knex|sequelize|pg|mysql|sqlite)
+
+  - id: js-eval
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      eval/new Function on a dynamic value executes arbitrary code. Parse data with JSON.parse
+      or use a lookup table instead.
+    metadata: {category: security, severity: high, cwe: "CWE-95"}
+    patterns:
+      - pattern-either:
+          - pattern: eval($X)
+          - pattern: new Function(...)
+          - pattern: setTimeout("...", ...)
+          - pattern: setInterval("...", ...)
+      - pattern-not: eval("...")
+
+  - id: js-hardcoded-secret
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      Hardcoded credential. Anyone with access to the source (or the bundle sent to browsers)
+      can read it. Load it from an environment variable or a secrets manager.
+    metadata: {category: security, severity: high, cwe: "CWE-798"}
+    patterns:
+      - pattern-either:
+          - pattern: $K = "$V"
+          - pattern: |
+              {..., $K: "$V", ...}
+      - metavariable-regex:
+          metavariable: $K
+          regex: (?i)^["']?(password|passwd|pwd|secret|client_?secret|api_?key|access_?token|auth_?token|private_?key)["']?$
+      - metavariable-regex: {metavariable: $V, regex: '.+'}
+
+  - id: js-weak-hash
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      MD5/SHA-1 are broken for security use (collisions are practical). Use SHA-256, or bcrypt /
+      argon2 / scrypt for passwords.
+    metadata: {category: security, severity: medium, cwe: "CWE-328"}
+    pattern-either:
+      - pattern: $C.createHash("md5")
+      - pattern: $C.createHash("sha1")
+      - pattern: createHash("md5")
+      - pattern: createHash("sha1")
+
+  - id: js-xss-inner-html
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      Assigning dynamic content to innerHTML/outerHTML or document.write enables cross-site
+      scripting. Use textContent, or sanitize with a library like DOMPurify.
+    metadata: {category: security, severity: high, cwe: "CWE-79"}
+    patterns:
+      - pattern-either:
+          - pattern: $EL.innerHTML = $X
+          - pattern: $EL.outerHTML = $X
+          - pattern: document.write($X)
+      - pattern-not: $EL.innerHTML = "..."
+      - pattern-not: $EL.outerHTML = "..."
+      - pattern-not: document.write("...")
+
+  - id: js-empty-catch
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      Empty catch block silently swallows the error, hiding real failures. Log it, handle it,
+      or let it propagate.
+    metadata: {category: bug, severity: medium, cwe: "CWE-390"}
+    pattern: |
+      try { ... } catch ($E) {}

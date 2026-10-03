@@ -7,7 +7,13 @@ plugs in after the static analyzers without changing the API contract.
 import ast
 from concurrent.futures import ThreadPoolExecutor
 
-from app.analyzers import bandit_runner, lizard_runner, pylint_runner, radon_runner
+from app.analyzers import (
+    bandit_runner,
+    lizard_runner,
+    pylint_runner,
+    radon_runner,
+    semgrep_runner,
+)
 from app.analyzers.runner import AnalyzerError
 from app.languages import SPECS, Language, LanguageSpec
 from app.postprocess import dedupe, sort_issues
@@ -17,7 +23,7 @@ from app.scoring import score
 # Each analyzer module exposes NAME and run(code, spec) -> list[Issue].
 ANALYZERS = {
     module.NAME: module
-    for module in [pylint_runner, bandit_runner, radon_runner, lizard_runner]
+    for module in [pylint_runner, bandit_runner, radon_runner, lizard_runner, semgrep_runner]
 }
 
 

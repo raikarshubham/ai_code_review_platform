@@ -1,0 +1,87 @@
+# Java rules. Tests: java.java next to this file.
+rules:
+  - id: java-command-injection
+    languages: [java]
+    severity: ERROR
+    message: >-
+      Command built from dynamic input passed to Runtime.exec/ProcessBuilder. Pass a fixed
+      program plus an argument array, and never route user input through a shell.
+    metadata: {category: security, severity: critical, cwe: "CWE-78"}
+    pattern-either:
+      - pattern: Runtime.getRuntime().exec($A + $B, ...)
+      - pattern: (Runtime $R).exec($A + $B, ...)
+      - pattern: Runtime.getRuntime().exec(String.format(...), ...)
+      - pattern: new ProcessBuilder("sh", "-c", $A + $B)
+      - pattern: new ProcessBuilder("bash", "-c", $A + $B)
+      - pattern: new ProcessBuilder("cmd", "/c", $A + $B)
+
+  - id: java-sql-injection
+    languages: [java]
+    severity: ERROR
+    message: >-
+      SQL built by string concatenation. Use a PreparedStatement with ? placeholders and
+      setString/setInt for the values.
+    metadata: {category: security, severity: critical, cwe: "CWE-89"}
+    patterns:
+      - pattern-either:
+          - pattern: $S.$METHOD("..." + $X, ...)
+          - pattern: $S.$METHOD($X + "...", ...)
+          - pattern: $S.$METHOD(String.format(...), ...)
+      - metavariable-regex:
+          metavariable: $METHOD
+          regex: ^(executeQuery|executeUpdate|execute|addBatch|prepareStatement|prepareCall|createQuery|createNativeQuery)$
+
+  - id: java-hardcoded-secret
+    languages: [java]
+    severity: ERROR
+    message: >-
+      Hardcoded credential in source code. Read it from configuration or an environment
+      variable (System.getenv) instead.
+    metadata: {category: security, severity: high, cwe: "CWE-798"}
+    patterns:
+      - pattern: String $K = "$V";
+      - metavariable-regex:
+          metavariable: $K
+          regex: (?i)^(password|passwd|pwd|secret|client_?secret|api_?key|access_?token|auth_?token|private_?key|db_?password)$
+      - metavariable-regex: {metavariable: $V, regex: '.+'}
+
+  - id: java-weak-hash
+    languages: [java]
+    severity: WARNING
+    message: >-
+      MD5/SHA-1 are broken for security use. Use SHA-256, or bcrypt/argon2/PBKDF2 for passwords.
+    metadata: {category: security, severity: medium, cwe: "CWE-328"}
+    patterns:
+      - pattern: MessageDigest.getInstance("$ALG")
+      - metavariable-regex: {metavariable: $ALG, regex: '(?i)^(md5|md2|sha1|sha-1)$'}
+
+  - id: java-unsafe-deserialization
+    languages: [java]
+    severity: ERROR
+    message: >-
+      ObjectInputStream.readObject on untrusted data can execute code via gadget chains. Use a
+      data format like JSON, or an ObjectInputFilter allow-list.
+    metadata: {category: security, severity: high, cwe: "CWE-502"}
+    pattern: (ObjectInputStream $IN).readObject()
+
+  - id: java-empty-catch
+    languages: [java]
+    severity: WARNING
+    message: >-
+      Empty catch block silently swallows the exception. Log it, handle it, or rethrow.
+    metadata: {category: bug, severity: medium, cwe: "CWE-390"}
+    pattern: |
+      try { ... } catch ($T $E) {}
+
+  - id: java-string-reference-equality
+    languages: [java]
+    severity: ERROR
+    message: >-
+      Strings compared with == / != check object identity, not content, so equal strings can
+      compare false. Use .equals() (or Objects.equals for nullable values).
+    metadata: {category: bug, severity: high, cwe: "CWE-597"}
+    pattern-either:
+      - pattern: $X == "..."
+      - pattern: '"..." == $X'
+      - pattern: $X != "..."
+      - pattern: '"..." != $X'
