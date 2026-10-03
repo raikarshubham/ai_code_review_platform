@@ -3,6 +3,7 @@
 import json
 
 from app.analyzers.runner import AnalyzerError, run_tool
+from app.languages import LanguageSpec
 from app.schemas import Category, Issue, Severity
 
 NAME = "bandit"
@@ -65,5 +66,5 @@ def parse(output: str) -> list[Issue]:
     return issues
 
 
-def run(code: str) -> list[Issue]:
-    return parse(run_tool("bandit", ARGS, code))
+def run(code: str, spec: LanguageSpec) -> list[Issue]:
+    return parse(run_tool("bandit", ARGS, code, spec.temp_ext))

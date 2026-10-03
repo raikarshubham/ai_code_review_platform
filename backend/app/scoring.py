@@ -26,16 +26,22 @@ BASELINE_LOC = 50
 CRITICAL_CAP = 50
 
 
-def count_loc(code: str) -> int:
-    """Non-blank lines that aren't just a comment."""
-    return sum(
-        1 for line in code.splitlines() if line.strip() and not line.strip().startswith("#")
-    )
+def count_loc(code: str, comment_prefixes: tuple[str, ...] = ("#",)) -> int:
+    """Non-blank lines that aren't just a line comment (`#`, `//`, `--` depending on language).
+
+    Block comments (/* ... */) still count as code; close enough for a size estimate.
+    """
+    count = 0
+    for line in code.splitlines():
+        stripped = line.strip()
+        if stripped and not (comment_prefixes and stripped.startswith(comment_prefixes)):
+            count += 1
+    return count
 
 
-def score(issues: list[Issue], code: str) -> int:
+def score(issues: list[Issue], code: str, comment_prefixes: tuple[str, ...] = ("#",)) -> int:
     penalty = sum(SEVERITY_WEIGHTS[issue.severity] for issue in issues)
-    size_factor = max(1.0, math.sqrt(count_loc(code) / BASELINE_LOC))
+    size_factor = max(1.0, math.sqrt(count_loc(code, comment_prefixes) / BASELINE_LOC))
     result = round(100 - penalty / size_factor)
     result = max(0, min(100, result))
     if any(issue.severity == Severity.CRITICAL for issue in issues):

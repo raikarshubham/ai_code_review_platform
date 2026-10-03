@@ -1,12 +1,14 @@
 """API data models.
 
-Every analyzer (Pylint, Bandit, Radon, the AI reviewer) gets normalized into the same
-`Issue` shape, so the scorer and the frontend only ever deal with one format.
+Every analyzer (Pylint, Bandit, Radon, Semgrep, Lizard, ..., the AI reviewer) gets normalized
+into the same `Issue` shape, so the scorer and the frontend only ever deal with one format.
 """
 
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+
+from app.languages import Language, detect_language
 
 # Big enough for any realistic single file, small enough that one request can't tie up
 # the analyzer subprocesses (or burn LLM quota) for minutes.
@@ -43,7 +45,28 @@ class Issue(BaseModel):
 
 class AnalyzeRequest(BaseModel):
     code: str = Field(min_length=1, max_length=MAX_CODE_CHARS)
-    filename: str = "snippet.py"
+    language: Language | None = None
+    filename: str | None = Field(default=None, max_length=255)
+
+    @model_validator(mode="after")
+    def resolve_language(self) -> "AnalyzeRequest":
+        """Explicit language wins, then the filename's extension, then Python.
+
+        Python is the default only when no filename is given, so old clients that send just
+        `code` keep working. An unrecognised extension is an error rather than a silent guess.
+        """
+        if self.language is None:
+            if self.filename is None:
+                self.language = Language.PYTHON
+            else:
+                detected = detect_language(self.filename)
+                if detected is None:
+                    raise ValueError(
+                        f"could not detect language from filename {self.filename!r}; "
+                        "send the 'language' field"
+                    )
+                self.language = detected
+        return self
 
 
 class AIReview(BaseModel):
@@ -55,6 +78,7 @@ class AIReview(BaseModel):
 
 
 class AnalyzeResponse(BaseModel):
+    language: Language
     issues: list[Issue]
     score: int = Field(ge=0, le=100)
     summary: dict[Severity, int] = Field(description="Issue count per severity")

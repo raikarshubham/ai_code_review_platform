@@ -28,4 +28,4 @@ def health() -> dict[str, str]:
 def analyze_code(request: AnalyzeRequest) -> AnalyzeResponse:
     # Plain `def` (not async): FastAPI runs it in a threadpool, so the blocking analyzer
     # subprocesses we add on Day 2 won't freeze the event loop.
-    return analyze(request.code)
+    return analyze(request.code, request.language)
