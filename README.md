@@ -133,6 +133,44 @@ If the LLM fails (network error, bad key, unusable reply), `/analyze` still retu
 results, with the reason in `ai_review.error`. Tests never call a real LLM: they use
 `httpx.MockTransport`, and `tests/conftest.py` forces `LLM_PROVIDER=off`.
 
+### Reliability on free tiers
+
+**Retries** (`backend/app/llm/client.py`). At most 3 attempts, all inside a 120 s deadline:
+
+| Failure | What happens |
+|---|---|
+| 429 rate limited | wait as long as the server says (`Retry-After` header, or Gemini's `retryDelay` in the body), then retry. A wait over 30 s fails right away. |
+| 500 / 502 / 503 / 504, connection error | back off 2 s, then 4 s |
+| Reply isn't JSON | retry once |
+| 400 / 401 / 403 / 404 | no retry: a bad key or a retired model won't fix itself |
+| Timeout | no retry: it already used the full 60 s |
+
+**Long files are split into chunks** (`backend/app/llm/chunking.py`). Files over 300 lines are
+cut only between top-level functions and classes, so no chunk starts in the middle of a
+function. Python uses `ast`; the other languages use Lizard's function ranges; SQL, YAML, JSON,
+CSS and HTML use 300-line windows.
+
+Each chunk is sent with its real file line numbers, only its own findings, and the file's
+imports as read-only context. Up to 3 chunks run in parallel. If one fails, the rest still
+count and `ai_review.error` says "1 of 3 chunks failed". Files needing more than 8 chunks
+(~2,400 lines) get `ai_review.truncated`.
+
+**Check your provider** with a real call (uses quota; not part of `pytest`):
+
+```bash
+backend/.venv/Scripts/python scripts/check_llm.py                             # known-bug snippet
+backend/.venv/Scripts/python scripts/check_llm.py --file app.go --language go  # any file
+```
+
+It prints the model, the number of chunks and HTTP requests (so you can see retries) and the
+time taken, then PASS, WARN or FAIL (exit code 1).
+
+Free tiers also have a **daily** request quota. On Gemini's free tier it ran out after about 40
+reviews in one day of testing. After that, Gemini answers 429 with a wait of several hours. The
+AI review is then skipped with `ai_review.error` "rate limited; retry in 5 h 41 min (daily quota
+likely used up)", and the static results still come back. Switching `LLM_PROVIDER` to `groq`
+in `.env` gives you a separate quota.
+
 ## Scoring
 
 ```
@@ -153,7 +191,7 @@ report (for example `eval` from both Pylint and Bandit) are merged into one.
 - [x] Day 3: Radon, `Issue` normalization, dedupe, sort, score, tests on `samples/buggy.py`
 - [x] Day 3.5: 19 languages: language list, Lizard, Semgrep with our own rules, SQL/YAML/JSON/CSS checks, language picker
 - [x] Day 4: LLM client + reviewer prompt + validation
-- [ ] Day 5: Retries, rate limits, chunking, fallback; `scripts/check_llm.py`
+- [x] Day 5: Retries, rate limits, chunking, fallback; `scripts/check_llm.py`
 - [ ] Day 6: Prompt tuning on 10-15 buggy snippets
 - [ ] Day 7: Buffer
 - [ ] Day 8-10: Monaco editor, inline severity annotations, side-by-side fix diffs
