@@ -25,7 +25,7 @@ def test_off_and_unset_mean_no_llm(env):
 def test_gemini_defaults(env):
     result = settings(env, LLM_PROVIDER="gemini", LLM_API_KEY="k")
     assert result.base_url == "https://generativelanguage.googleapis.com/v1beta/openai"
-    assert result.model == "gemini-2.5-flash"
+    assert result.model == "gemini-3.5-flash"
     assert result.api_key == "k"
 
 

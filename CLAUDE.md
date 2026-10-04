@@ -28,7 +28,7 @@ over clever.
 ## Rules for the AI layer
 - Use free LLMs through one OpenAI-compatible client (httpx), configured with `.env`:
   `LLM_PROVIDER=gemini|groq|ollama|off`, `LLM_API_KEY`, optional `LLM_MODEL`.
-  Defaults: gemini -> `gemini-2.5-flash` at `https://generativelanguage.googleapis.com/v1beta/openai`,
+  Defaults: gemini -> `gemini-3.5-flash` at `https://generativelanguage.googleapis.com/v1beta/openai`,
   groq -> `llama-3.3-70b-versatile` at `https://api.groq.com/openai/v1`.
 - Validate everything the model returns. Drop unknown finding ids, out-of-range line numbers,
   and style-category issues.
