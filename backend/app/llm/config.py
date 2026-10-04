@@ -56,8 +56,12 @@ def load_settings(env_file: Path | None = REPO_ROOT / ".env") -> LLMSettings | N
     if not model:
         raise LLMConfigError(f"LLM_MODEL is required for provider {provider!r}")
 
-    api_key = os.getenv("LLM_API_KEY", "").strip() or None
+    # The provider's own key (GROQ_API_KEY, GEMINI_API_KEY) wins over the generic LLM_API_KEY.
+    # That lets .env hold keys for several providers, and switching LLM_PROVIDER can never send
+    # one provider's key to another provider's servers.
+    provider_key = f"{provider.upper()}_API_KEY"
+    api_key = os.getenv(provider_key, "").strip() or os.getenv("LLM_API_KEY", "").strip() or None
     if provider in NEEDS_KEY and not api_key:
-        raise LLMConfigError(f"LLM_API_KEY is required for provider {provider!r}")
+        raise LLMConfigError(f"{provider_key} or LLM_API_KEY is required for provider {provider!r}")
 
     return LLMSettings(provider=provider, base_url=base_url, model=model, api_key=api_key)

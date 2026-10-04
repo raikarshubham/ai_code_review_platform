@@ -6,7 +6,7 @@ from app.llm.config import LLMConfigError, load_settings
 @pytest.fixture
 def env(monkeypatch):
     """Start every test from a clean slate of LLM_* variables."""
-    for name in ("LLM_PROVIDER", "LLM_API_KEY", "LLM_MODEL"):
+    for name in ("LLM_PROVIDER", "LLM_API_KEY", "LLM_MODEL", "GEMINI_API_KEY", "GROQ_API_KEY"):
         monkeypatch.delenv(name, raising=False)
     return monkeypatch
 
@@ -49,3 +49,22 @@ def test_ollama_needs_a_model_but_no_key(env):
 def test_unknown_provider(env):
     with pytest.raises(LLMConfigError, match="openai"):
         settings(env, LLM_PROVIDER="openai")
+
+
+def test_provider_specific_key_is_used(env):
+    assert settings(env, LLM_PROVIDER="groq", GROQ_API_KEY="groq-key").api_key == "groq-key"
+
+
+def test_provider_specific_key_wins_so_keys_never_cross_providers(env):
+    # .env holds the Gemini key in LLM_API_KEY; switching to Groq must not send it to Groq.
+    result = settings(env, LLM_PROVIDER="groq", LLM_API_KEY="gemini-key", GROQ_API_KEY="groq-key")
+    assert result.api_key == "groq-key"
+
+
+def test_generic_key_is_the_fallback(env):
+    assert settings(env, LLM_PROVIDER="gemini", LLM_API_KEY="generic").api_key == "generic"
+
+
+def test_missing_key_error_names_both_variables(env):
+    with pytest.raises(LLMConfigError, match="GROQ_API_KEY or LLM_API_KEY"):
+        settings(env, LLM_PROVIDER="groq")
