@@ -98,6 +98,33 @@
   color: var(--muted);
 }
 .line { font-family: ui-monospace, Consolas, monospace; color: var(--muted); }
+.issue-dismissed { opacity: 0.55; }
+
+.tag {
+  margin-left: 8px;
+  padding: 1px 6px;
+  font-size: 0.75rem;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.tag-ai { color: var(--accent); border-color: var(--accent); }
+
+.ai-note {
+  grid-column: 1 / -1;
+  padding-top: 6px;
+  border-top: 1px dashed var(--border);
+}
+.ai-note p { margin: 4px 0; }
+.ai-note pre {
+  margin: 4px 0 0;
+  padding: 8px 10px;
+  overflow-x: auto;
+  font-size: 0.85rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
 
 .severity {
   padding: 2px 8px;

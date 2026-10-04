@@ -26,17 +26,68 @@ function IssueList({ issues }) {
 
   return (
     <ul className="issues">
-      {issues.map((issue, index) => (
-        <li key={`${issue.tool}-${issue.rule_id}-${issue.line}-${index}`} className="issue">
-          <span className={`severity severity-${issue.severity}`}>{issue.severity}</span>
-          <span className="line">Line {issue.line}</span>
-          <span className="message">{issue.message}</span>
-          <span className="meta">
-            {issue.tool} · {issue.rule_id} · {issue.category}
-          </span>
-        </li>
-      ))}
+      {issues.map((issue, index) => {
+        const falsePositive = issue.ai?.verdict === 'false_positive'
+        return (
+          <li
+            key={`${issue.tool}-${issue.rule_id}-${issue.line}-${index}`}
+            className={falsePositive ? 'issue issue-dismissed' : 'issue'}
+          >
+            <span className={`severity severity-${issue.severity}`}>{issue.severity}</span>
+            <span className="line">Line {issue.line}</span>
+            <span className="message">
+              {issue.message}
+              {falsePositive && <span className="tag">false positive (not scored)</span>}
+              {issue.tool === 'ai' && <span className="tag tag-ai">found by AI</span>}
+            </span>
+            <span className="meta">
+              {issue.tool} · {issue.rule_id} · {issue.category}
+            </span>
+            {issue.ai && <AINote note={issue.ai} />}
+          </li>
+        )
+      })}
     </ul>
+  )
+}
+
+// Plain text rendering on purpose: everything here came from the LLM, so it is never
+// injected as HTML.
+function AINote({ note }) {
+  return (
+    <div className="ai-note">
+      <p>{note.explanation}</p>
+      {note.fix && (
+        <p>
+          <strong>Fix:</strong> {note.fix}
+        </p>
+      )}
+      {note.fixed_code && (
+        <>
+          <p className="muted">
+            Replace lines {note.fix_start_line}–{note.fix_end_line} with:
+          </p>
+          <pre>{note.fixed_code}</pre>
+        </>
+      )}
+    </div>
+  )
+}
+
+function AIStatus({ review }) {
+  if (!review?.enabled) return null
+  if (review.error) {
+    return (
+      <div className="warning" role="status">
+        <strong>AI review unavailable, showing static analysis only:</strong> {review.error}
+      </div>
+    )
+  }
+  return (
+    <p className="muted">
+      AI review ({review.model}): {review.confirmed} confirmed, {review.false_positives} false
+      positives, {review.added} new
+    </p>
   )
 }
 
@@ -136,6 +187,7 @@ export default function App() {
             <span className="result-language">{languageLabel}</span>
           </h2>
           <ToolErrors errors={result.tool_errors} />
+          <AIStatus review={result.ai_review} />
           <IssueList issues={result.issues} />
         </section>
       )}
