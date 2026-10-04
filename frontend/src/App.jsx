@@ -76,7 +76,8 @@ function AINote({ note }) {
 
 function AIStatus({ review }) {
   if (!review?.enabled) return null
-  if (review.error) {
+  // chunks === 0 means no part of the file was reviewed; otherwise some chunks may have failed.
+  if (review.error && !review.chunks) {
     return (
       <div className="warning" role="status">
         <strong>AI review unavailable, showing static analysis only:</strong> {review.error}
@@ -84,10 +85,24 @@ function AIStatus({ review }) {
     )
   }
   return (
-    <p className="muted">
-      AI review ({review.model}): {review.confirmed} confirmed, {review.false_positives} false
-      positives, {review.added} new
-    </p>
+    <>
+      {review.error && (
+        <div className="warning" role="status">
+          <strong>AI review incomplete:</strong> {review.error}
+        </div>
+      )}
+      {review.truncated && (
+        <div className="warning" role="status">
+          This file is very long, so the AI reviewed only its first part. Static analysis covers
+          the whole file.
+        </div>
+      )}
+      <p className="muted">
+        AI review ({review.model}): {review.confirmed} confirmed, {review.false_positives} false
+        positives, {review.added} new
+        {review.chunks > 1 && ` · reviewed in ${review.chunks} parts`}
+      </p>
+    </>
   )
 }
 
@@ -174,7 +189,7 @@ export default function App() {
           aria-label={`${languageLabel} code`}
         />
         <button onClick={handleAnalyze} disabled={loading || !code.trim()}>
-          {loading ? 'Analyzing…' : 'Analyze'}
+          {loading ? 'Analyzing… (the AI review can take up to a minute)' : 'Analyze'}
         </button>
       </section>
 
