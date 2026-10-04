@@ -79,7 +79,7 @@ class LLMClient:
                 else:
                     raise
                 if wait > MAX_WAIT_SECONDS:
-                    raise LLMError(f"{self.settings.provider} rate limited; retry after {wait:.0f}s",
+                    raise LLMError(f"{self.settings.provider} rate limited; retry in {_duration(wait)}",
                                    status=exc.status) from exc
                 elapsed = self._clock() - started
                 if attempt == MAX_ATTEMPTS or elapsed + wait >= DEADLINE_SECONDS:
@@ -111,6 +111,18 @@ class LLMClient:
         except (ValueError, KeyError, IndexError, TypeError) as exc:
             raise LLMError(f"unexpected response shape from {provider}") from exc
         return parse_json_object(content)
+
+
+def _duration(seconds: float) -> str:
+    """45 -> "45 s", 300 -> "5 min", 20538 -> "5 h 42 min". A daily free-tier quota running out
+    shows up as a 429 asking for hours, and "retry after 20538s" means nothing to a user."""
+    if seconds < 120:
+        return f"{seconds:.0f} s"
+    minutes = round(seconds / 60)
+    hours, minutes = divmod(minutes, 60)
+    if hours == 0:
+        return f"{minutes} min"
+    return f"{hours} h {minutes} min (daily quota likely used up)"
 
 
 def _error_body(response: httpx.Response) -> dict | None:

@@ -151,9 +151,16 @@ def test_429_uses_geminis_retry_delay_from_the_body():
 def test_long_retry_after_fails_now_instead_of_waiting():
     time_ = FakeTime()
     handler = scripted(httpx.Response(429, headers={"Retry-After": "45"}))
-    with pytest.raises(LLMError, match="rate limited; retry after 45s"):
+    with pytest.raises(LLMError, match="rate limited; retry in 45 s"):
         client_with(handler, time_).chat_json([])
     assert time_.waits == []
+
+
+def test_daily_quota_wait_is_shown_in_hours():
+    # Seen live: Gemini's free tier ran out for the day and asked for a 20538 s wait.
+    handler = scripted(httpx.Response(429, headers={"Retry-After": "20538"}))
+    with pytest.raises(LLMError, match=r"retry in 5 h 42 min \(daily quota likely used up\)"):
+        client_with(handler).chat_json([])
 
 
 @pytest.mark.parametrize("status", [400, 401, 403, 404])
