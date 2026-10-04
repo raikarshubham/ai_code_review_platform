@@ -59,3 +59,15 @@ fun web(view: WebView) {
     // ruleid: kt-webview-js-interface
     view.addJavascriptInterface(Bridge(), "bridge")
 }
+
+fun twoStepQueries(db: SQLiteDatabase, id: String) {
+    val sql = "SELECT * FROM users WHERE id = " + id
+    // ruleid: kt-sql-injection
+    db.rawQuery(sql, null)
+    val del = "DELETE FROM users WHERE id = $id"
+    // ruleid: kt-sql-injection
+    db.execSQL(del)
+    val safe = "SELECT * FROM users WHERE id = ?"
+    // ok: kt-sql-injection
+    db.rawQuery(safe, arrayOf(id))
+}

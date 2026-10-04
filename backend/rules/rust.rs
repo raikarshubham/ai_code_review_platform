@@ -51,3 +51,12 @@ fn raw(p: *const i32) -> i32 {
     // ruleid: rust-unsafe-block
     unsafe { *p }
 }
+
+fn two_step_queries(conn: &Connection, id: &str) {
+    let sql = format!("DELETE FROM users WHERE id = {}", id);
+    // ruleid: rust-sql-injection
+    conn.execute(&sql, []);
+    let safe = "DELETE FROM users WHERE id = ?1";
+    // ok: rust-sql-injection
+    conn.execute(safe, params![id]);
+}

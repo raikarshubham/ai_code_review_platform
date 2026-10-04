@@ -65,4 +65,17 @@ public class Fixture
     }
 
     private void Risky() { }
+
+    public void TwoStepQueries(SqlConnection conn, AppDb db, string name)
+    {
+        var sql = "SELECT * FROM Users WHERE Name = '" + name + "'";
+        // ruleid: cs-sql-injection
+        var cmd = new SqlCommand(sql, conn);
+        string del = String.Format("DELETE FROM Users WHERE Name = {0}", name);
+        // ruleid: cs-sql-injection
+        db.Database.ExecuteSqlRaw(del);
+        var safe = "SELECT * FROM Users WHERE Name = @name";
+        // ok: cs-sql-injection
+        var ok = new SqlCommand(safe, conn);
+    }
 }

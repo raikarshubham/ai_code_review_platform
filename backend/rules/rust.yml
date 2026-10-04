@@ -25,6 +25,14 @@ rules:
           - pattern: $C.$METHOD(format!(...), ...)
           - pattern: sqlx::query(&format!(...))
           - pattern: sqlx::query(format!(...))
+          # Two-step: the query is built into a variable first (see go.yml for how this works).
+          - patterns:
+              - pattern-inside: |
+                  let $Q = format!(...);
+                  ...
+              - pattern-either:
+                  - pattern: $C.$METHOD(&$Q, ...)
+                  - pattern: $C.$METHOD($Q, ...)
       - metavariable-regex:
           metavariable: $METHOD
           regex: ^(execute|query|query_row|query_map|prepare|execute_batch)$

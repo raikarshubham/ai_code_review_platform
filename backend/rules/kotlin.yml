@@ -25,6 +25,25 @@ rules:
           - pattern: $DB.$METHOD("..." + $X, ...)
           - pattern: $DB.$METHOD("...${$X}...", ...)
           - pattern: $DB.$METHOD("...$X...", ...)
+          # Two-step: the query is built into a variable first (see go.yml for how this works).
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      val $Q = "..." + $X
+                      ...
+                  - pattern-inside: |
+                      val $Q = "...${$X}..."
+                      ...
+                  - pattern-inside: |
+                      val $Q = "...$X..."
+                      ...
+                  - pattern-inside: |
+                      var $Q = "..." + $X
+                      ...
+                  - pattern-inside: |
+                      var $Q = "...$X..."
+                      ...
+              - pattern: $DB.$METHOD($Q, ...)
       - metavariable-regex:
           metavariable: $METHOD
           regex: ^(rawQuery|execSQL|executeQuery|executeUpdate|execute|prepareStatement)$

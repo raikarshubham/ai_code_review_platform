@@ -53,6 +53,19 @@ rules:
           - pattern: $DB.$METHOD("..." + $X, ...)
           - pattern: $DB.$METHOD($X + "...", ...)
           - pattern: $DB.$METHOD(`...${$X}...`, ...)
+          # Two-step: the query is built into a variable first (see go.yml for how this works).
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      $Q = "..." + $X;
+                      ...
+                  - pattern-inside: |
+                      $Q = $X + "...";
+                      ...
+                  - pattern-inside: |
+                      $Q = `...${$X}...`;
+                      ...
+              - pattern: $DB.$METHOD($Q, ...)
       - metavariable-regex: {metavariable: $METHOD, regex: '^(query|execute|raw|exec|run|all|get)$'}
       # metavariable-regex is left-anchored (like Python's re.match), hence the leading .*
       - metavariable-regex:

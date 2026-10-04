@@ -27,6 +27,25 @@ rules:
           - pattern: $S.$METHOD("..." + $X, ...)
           - pattern: $S.$METHOD($X + "...", ...)
           - pattern: $S.$METHOD(String.format(...), ...)
+          # Two-step: the query is built into a variable first (see go.yml for how this works).
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      $T $Q = "..." + $X;
+                      ...
+                  - pattern-inside: |
+                      $T $Q = $X + "...";
+                      ...
+                  - pattern-inside: |
+                      $T $Q = String.format(...);
+                      ...
+                  - pattern-inside: |
+                      $Q = "..." + $X;
+                      ...
+                  - pattern-inside: |
+                      $Q = String.format(...);
+                      ...
+              - pattern: $S.$METHOD($Q, ...)
       - metavariable-regex:
           metavariable: $METHOD
           regex: ^(executeQuery|executeUpdate|execute|addBatch|prepareStatement|prepareCall|createQuery|createNativeQuery)$

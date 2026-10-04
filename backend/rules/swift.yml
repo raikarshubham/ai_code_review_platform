@@ -13,6 +13,19 @@ rules:
       - pattern: sqlite3_exec($DB, <... "..." + $X ...>, ...)
       - pattern: sqlite3_prepare_v2($DB, <... "..." + $X ...>, ...)
       - pattern: $DB.execute(<... "..." + $X ...>, ...)
+      # Two-step: the query is built into a variable first (see go.yml for how this works).
+      - patterns:
+          - pattern-either:
+              - pattern-inside: |
+                  let $Q = <... "..." + $X ...>
+                  ...
+              - pattern-inside: |
+                  var $Q = <... "..." + $X ...>
+                  ...
+          - pattern-either:
+              - pattern: sqlite3_exec($DB, $Q, ...)
+              - pattern: sqlite3_prepare_v2($DB, $Q, ...)
+              - pattern: $DB.execute($Q, ...)
 
   - id: swift-hardcoded-secret
     languages: [swift]

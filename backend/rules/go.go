@@ -83,3 +83,16 @@ func parse(s string, m map[string]int, v interface{}) {
 	str, _ := v.(string)
 	fmt.Println(n, count, str)
 }
+
+func twoStepQueries(db *sql.DB, ctx context.Context, id string) {
+	query := fmt.Sprintf("SELECT * FROM users WHERE id = %s", id)
+	// ruleid: go-sql-injection
+	db.Query(query)
+	var del string
+	del = "DELETE FROM users WHERE id = " + id
+	// ruleid: go-sql-injection
+	db.ExecContext(ctx, del)
+	safe := "SELECT * FROM users WHERE id = $1"
+	// ok: go-sql-injection
+	db.Query(safe, id)
+}

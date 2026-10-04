@@ -75,4 +75,16 @@ public class Fixture {
     }
 
     void risky() {}
+
+    void twoStepQueries(Statement stmt, String name) throws SQLException {
+        String query = "SELECT * FROM users WHERE name = '" + name + "'";
+        // ruleid: java-sql-injection
+        stmt.executeQuery(query);
+        String sql = String.format("DELETE FROM users WHERE name = %s", name);
+        // ruleid: java-sql-injection
+        stmt.executeUpdate(sql);
+        String safe = "SELECT * FROM users";
+        // ok: java-sql-injection
+        stmt.executeQuery(safe);
+    }
 }

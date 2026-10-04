@@ -34,6 +34,20 @@ rules:
           - pattern: $DB->exec(<... "..." . $X ...>)
           - pattern: mysqli_query($C, "...$X...")
           - pattern: $DB->query("...$X...")
+          # Two-step: the query is built into a variable first (see go.yml for how this works).
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      $Q = <... "..." . $X ...>;
+                      ...
+                  - pattern-inside: |
+                      $Q = "...$X...";
+                      ...
+              - pattern-either:
+                  - pattern: mysqli_query($C, $Q)
+                  - pattern: mysql_query($Q)
+                  - pattern: $DB->query($Q)
+                  - pattern: $DB->exec($Q)
 
   - id: php-eval
     languages: [php]

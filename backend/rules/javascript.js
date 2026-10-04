@@ -79,3 +79,15 @@ function swallow() {
   // ok: js-empty-catch
   try { risky(); } catch (e) { console.error(e); }
 }
+
+function twoStepQueries(db, pool, id) {
+  const sql = "SELECT * FROM users WHERE id = " + id;
+  // ruleid: js-sql-injection
+  db.query(sql);
+  let del = `DELETE FROM users WHERE id = ${id}`;
+  // ruleid: js-sql-injection
+  pool.query(del);
+  const safe = "SELECT * FROM users WHERE id = ?";
+  // ok: js-sql-injection
+  db.query(safe, [id]);
+}

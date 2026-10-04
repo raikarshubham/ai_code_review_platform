@@ -49,3 +49,12 @@ func load(path: String) {
     // ok: swift-force-try
     let maybe = try? String(contentsOfFile: path)
 }
+
+func twoStepQueries(db: OpaquePointer?, name: String) {
+    let sql = "DELETE FROM users WHERE name = '" + name + "'"
+    // ruleid: swift-sql-injection
+    sqlite3_exec(db, sql, nil, nil, nil)
+    let safe = "SELECT * FROM users"
+    // ok: swift-sql-injection
+    sqlite3_exec(db, safe, nil, nil, nil)
+}

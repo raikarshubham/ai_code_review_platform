@@ -27,6 +27,16 @@ rules:
       - pattern-either:
           - pattern: $M.$METHOD("...#{$X}...", ...)
           - pattern: $M.$METHOD("..." + $X, ...)
+          # Two-step: the query is built into a variable first (see go.yml for how this works).
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      $Q = "...#{$X}..."
+                      ...
+                  - pattern-inside: |
+                      $Q = "..." + $X
+                      ...
+              - pattern: $M.$METHOD($Q, ...)
       - metavariable-regex:
           metavariable: $METHOD
           regex: ^(where|find_by_sql|execute|exec_query|select_all|order|having|joins|group|pluck|delete_all|update_all)$

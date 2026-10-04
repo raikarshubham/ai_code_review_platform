@@ -33,6 +33,37 @@ rules:
           - metavariable-regex:
               metavariable: $METHOD
               regex: ^(ExecuteSqlRaw|FromSqlRaw|ExecuteSqlCommand|SqlQuery|ExecuteQuery|Query|Execute)$
+      # Two-step: the query is built into a variable first (see go.yml for how this works).
+      - patterns:
+          - pattern-either:
+              # `var` isn't matched by a type metavariable, so it gets its own variants. <... ...>
+              # finds the concatenation anywhere: "a" + x + "b" parses as ("a" + x) + "b".
+              - pattern-inside: |
+                  var $Q = <... "..." + $X ...>;
+                  ...
+              - pattern-inside: |
+                  var $Q = String.Format(...);
+                  ...
+              - pattern-inside: |
+                  $T $Q = "..." + $X;
+                  ...
+              - pattern-inside: |
+                  $T $Q = $X + "...";
+                  ...
+              - pattern-inside: |
+                  $T $Q = String.Format(...);
+                  ...
+              - pattern-inside: |
+                  $T $Q = string.Format(...);
+                  ...
+          - pattern-either:
+              - pattern: new SqlCommand($Q, ...)
+              - pattern: $CMD.CommandText = $Q
+              - patterns:
+                  - pattern: $DB.$METHOD($Q, ...)
+                  - metavariable-regex:
+                      metavariable: $METHOD
+                      regex: ^(ExecuteSqlRaw|FromSqlRaw|ExecuteSqlCommand|SqlQuery|ExecuteQuery|Query|Execute)$
 
   - id: cs-hardcoded-secret
     languages: [csharp]

@@ -26,6 +26,25 @@ rules:
           - pattern: $DB.$METHOD($CTX, fmt.Sprintf(...), ...)
           - pattern: $DB.$METHOD("..." + $X, ...)
           - pattern: $DB.$METHOD($CTX, "..." + $X, ...)
+          # Two-step: the query is built into a variable first, then passed in. pattern-inside
+          # finds the build earlier in the scope; the pattern itself reports the call line.
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      $Q := fmt.Sprintf(...)
+                      ...
+                  - pattern-inside: |
+                      $Q = fmt.Sprintf(...)
+                      ...
+                  - pattern-inside: |
+                      $Q := "..." + $X
+                      ...
+                  - pattern-inside: |
+                      $Q = "..." + $X
+                      ...
+              - pattern-either:
+                  - pattern: $DB.$METHOD($Q, ...)
+                  - pattern: $DB.$METHOD($CTX, $Q, ...)
       - metavariable-regex:
           metavariable: $METHOD
           regex: ^(Query|QueryRow|Exec|QueryContext|QueryRowContext|ExecContext|Prepare|PrepareContext)$

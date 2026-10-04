@@ -62,3 +62,15 @@ function hashes($pw) {
     // ok: php-weak-hash
     $good = password_hash($pw, PASSWORD_DEFAULT);
 }
+
+function two_step_queries($pdo, $conn, $id) {
+    $sql = "SELECT * FROM users WHERE id = " . $id;
+    // ruleid: php-sql-injection
+    $pdo->query($sql);
+    $del = "DELETE FROM users WHERE id = $id";
+    // ruleid: php-sql-injection
+    mysqli_query($conn, $del);
+    $safe = "SELECT COUNT(*) FROM users";
+    // ok: php-sql-injection
+    $pdo->query($safe);
+}

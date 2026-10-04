@@ -74,3 +74,15 @@ def risky
     puts e
   end
 end
+
+def two_step_queries(name)
+  sql = "SELECT * FROM users WHERE name = '#{name}'"
+  # ruleid: rb-sql-injection
+  ActiveRecord::Base.connection.execute(sql)
+  del = "DELETE FROM users WHERE name = " + name
+  # ruleid: rb-sql-injection
+  ActiveRecord::Base.connection.execute(del)
+  safe = "SELECT * FROM users"
+  # ok: rb-sql-injection
+  ActiveRecord::Base.connection.execute(safe)
+end
