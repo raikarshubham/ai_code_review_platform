@@ -60,6 +60,21 @@ def parse(output: str) -> list[Issue]:
     return issues
 
 
+def function_ranges(code: str, spec: LanguageSpec) -> list[tuple[int, int]]:
+    """(start, end) line of every function Lizard finds. The AI reviewer uses these to split
+    long files at function boundaries. Raises AnalyzerError like run()."""
+    output = run_tool("lizard", ARGS, code, spec.temp_ext, allow_empty=True)
+    ranges = []
+    for row in csv.reader(io.StringIO(output)):
+        if not row:
+            continue
+        try:
+            ranges.append((int(row[START]), int(row[END])))
+        except (IndexError, ValueError) as exc:
+            raise AnalyzerError(f"lizard returned an unexpected row: {row!r}") from exc
+    return ranges
+
+
 def run(code: str, spec: LanguageSpec) -> list[Issue]:
     # No functions in the file -> Lizard prints nothing, which is a valid "no issues".
     return parse(run_tool("lizard", ARGS, code, spec.temp_ext, allow_empty=True))
