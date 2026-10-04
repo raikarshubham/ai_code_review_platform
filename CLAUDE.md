@@ -1,16 +1,22 @@
 # AI Code Review & Bug Detection Platform
 
-A developer tool that analyzes Python code for bugs, security vulnerabilities, code smells
-and complexity issues, and gives AI-written explanations and fix suggestions.
+A developer tool that analyzes code in 19 languages (Python first-class) for bugs, security
+vulnerabilities, code smells and complexity issues, and gives AI-written explanations and fix
+suggestions.
 This is a portfolio project for campus placements. I need to understand and explain every
 part of it in interviews, so explain non-obvious decisions as you go, and keep code readable
 over clever.
 
 ## Core design: hybrid, not LLM-only
 
-1. **Static analysis first** (deterministic and reliable): Pylint (bugs, smells), Bandit
-   (security), Radon (complexity). Run them as subprocesses on a temp file with a timeout.
-   Never execute the submitted code.
+1. **Static analysis first** (deterministic and reliable). Run the tools as subprocesses on a temp
+   file with a timeout, and never execute the submitted code. Which tools run is set per
+   language in `backend/app/languages.py`, the one list the backend and frontend both use:
+   - Python: Pylint (bugs, smells), Bandit (security), Radon (complexity).
+   - JS/TS, Java, C#, Go, Rust, C/C++, PHP, Ruby, Swift, Kotlin: Semgrep with our own rules, plus
+     Lizard (complexity). Objective-C: Lizard only. HTML: Semgrep.
+   - SQL: SQLFluff plus our own check for UPDATE/DELETE without WHERE. YAML: yamllint + Semgrep.
+     JSON: our own parser checks + Semgrep. CSS: our own checks with tinycss2.
 2. **Normalize** every tool's output into one `Issue` model:
    `tool, rule_id, category (security|bug|smell|complexity|style), severity
    (critical|high|medium|low|info), line, end_line, message, symbol`.
@@ -30,13 +36,22 @@ over clever.
 - False positives stay in the response but don't count toward the score.
 - Retry once on invalid JSON. Back off on HTTP 429 using Retry-After. If the LLM fails, return
   the static results with an `ai_review.error` message instead of failing the request.
-- For long files, split into chunks by top-level function/class using `ast`.
+- Tell the model the language, and send line-numbered code in a fence tagged with that language.
+- For long files, split into chunks by top-level function/class: `ast` for Python, and the
+  function start/end lines from Lizard for the other languages it supports. Fall back to
+  fixed-size line windows for languages with no function boundaries (SQL, YAML, JSON, CSS, HTML).
 - Don't send info-level findings to the LLM, to save free-tier quota.
 - Tests must never call a real LLM. Use `httpx.MockTransport`.
 
 ## Stack
-- Backend: Python 3.11, FastAPI, Pydantic v2, pytest. Layout: `backend/app/{main,pipeline,schemas}.py`,
-  `backend/app/analyzers/`, `backend/app/llm/`, `backend/tests/`, `backend/samples/buggy.py`.
+- Backend: Python 3.11, FastAPI, Pydantic v2, pytest. Layout: `backend/app/{main,pipeline,schemas,languages}.py`,
+  `backend/app/analyzers/`, `backend/app/llm/`, `backend/rules/`, `backend/tests/`, `backend/samples/buggy.py`.
+- Semgrep lives in its own venv, `backend/.venv-semgrep`, because its opentelemetry pin conflicts
+  with FastAPI's. Never add it to `requirements.txt`. We call `semgrep-core` directly, so the
+  version stays pinned exactly in `requirements-semgrep.txt`.
+- Semgrep rules: write our own in `backend/rules/`, never copy from the Semgrep Registry (its
+  license doesn't allow use in a service). Every rule file needs a fixture with
+  `ruleid:`/`ok:` comments, and no rule message may contain `$` (Semgrep substitutes it).
 - Frontend: React + Vite (Monaco editor from Day 8).
 - Later: PostgreSQL, Docker, deploy to Render or Railway (backend) and Vercel (frontend).
 
@@ -45,12 +60,16 @@ Bandit's defaults understate real risk. Override them: shell injection, `os.syst
 injection are critical; pickle, yaml.load, eval, exec and hardcoded passwords are high;
 md5/sha1 is medium; "imported pickle/subprocess" warnings are info.
 Treat these Pylint warnings as high-severity bugs: mutable default argument (W0102) and bare except (W0702).
+Our Semgrep rules set category and severity in their `metadata` using the same scale: command and
+SQL injection are critical, eval and hardcoded secrets are high.
 
 ## Build plan (2-3 hours a day; do one day per session)
 - Day 1: repo setup, FastAPI `/health` + `/analyze`, React shell
 - Day 2: Pylint + Bandit runners, JSON output parsed
 - Day 3: Radon, `Issue` normalization, dedupe, sort, score, tests on `samples/buggy.py`
-- Day 4: LLM client + reviewer prompt + validation
+- Day 3.5 (added): 19-language support: language list, Lizard, Semgrep with our own rules,
+  SQL/YAML/JSON/CSS checks, language picker in the frontend
+- Day 4: LLM client + reviewer prompt + validation (language-aware)
 - Day 5: retries, rate limits, chunking, fallback; `scripts/check_llm.py` end-to-end check
 - Day 6: tune the prompt on 10-15 buggy snippets. Key target: catch `process()` in
   samples/buggy.py returning `result`, which is unbound when the try block raises
