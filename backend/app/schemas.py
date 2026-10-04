@@ -32,6 +32,23 @@ class Severity(str, Enum):
     INFO = "info"
 
 
+class Verdict(str, Enum):
+    CONFIRMED = "confirmed"
+    FALSE_POSITIVE = "false_positive"
+
+
+class AINote(BaseModel):
+    """What the LLM said about one issue. Kept separate from the static fields so it's always
+    clear which parts came from a deterministic tool and which from the model."""
+
+    verdict: Verdict
+    explanation: str
+    fix: str | None = None
+    fixed_code: str | None = Field(default=None, description="Replaces lines fix_start_line..fix_end_line")
+    fix_start_line: int | None = Field(default=None, ge=1)
+    fix_end_line: int | None = Field(default=None, ge=1)
+
+
 class Issue(BaseModel):
     tool: str = Field(description="Which analyzer found it: pylint, bandit, radon, ai, python")
     rule_id: str = Field(description="Tool-specific rule id, e.g. W0102 or B602")
@@ -41,6 +58,11 @@ class Issue(BaseModel):
     end_line: int | None = Field(default=None, ge=1)
     message: str
     symbol: str | None = Field(default=None, description="Human-readable rule name")
+    ai: AINote | None = Field(default=None, description="Set when the AI review ran and commented on it")
+
+    @property
+    def is_false_positive(self) -> bool:
+        return self.ai is not None and self.ai.verdict == Verdict.FALSE_POSITIVE
 
 
 class AnalyzeRequest(BaseModel):
@@ -70,10 +92,16 @@ class AnalyzeRequest(BaseModel):
 
 
 class AIReview(BaseModel):
-    """Status of the LLM layer. Filled in from Day 4; `error` is set when the LLM fails
-    and we fall back to static results instead of failing the whole request."""
+    """Status of the LLM layer. `error` is set when the LLM fails and we fall back to the
+    static results instead of failing the whole request."""
 
     enabled: bool = False
+    provider: str | None = None
+    model: str | None = None
+    confirmed: int = 0
+    false_positives: int = 0
+    added: int = Field(default=0, description="New issues the AI found that the tools missed")
+    overridden: int = Field(default=0, description="Dismissals of critical security findings we refused")
     error: str | None = None
 
 

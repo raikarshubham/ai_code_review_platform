@@ -25,7 +25,8 @@ def test_analyze_valid_code_returns_clean_result():
     assert body["score"] == 100
     assert body["tool_errors"] == {}
     assert set(body["summary"]) == {"critical", "high", "medium", "low", "info"}
-    assert body["ai_review"] == {"enabled": False, "error": None}
+    assert body["ai_review"]["enabled"] is False
+    assert body["ai_review"]["error"] is None
 
 
 def test_analyze_syntax_error_reports_line():
