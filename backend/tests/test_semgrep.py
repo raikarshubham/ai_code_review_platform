@@ -56,6 +56,13 @@ def test_rule_ids_unique_and_dot_free():
     assert all("." not in rule_id for rule_id in ids)
 
 
+def test_rule_messages_have_no_dollar_sign():
+    # Semgrep treats $X / $1 in a message as a metavariable or regex group and substitutes the
+    # matched text, so "placeholders like $1" was shown to users as "placeholders like co".
+    for path, rule in all_rules():
+        assert "$" not in rule["message"], f"{path.name}:{rule['id']}"
+
+
 def test_every_rule_file_has_a_fixture():
     for path in RULE_FILES:
         fixtures = [p for p in RULES_DIR.glob(f"{path.stem}.*") if p.suffix != ".yml"]

@@ -46,7 +46,7 @@ rules:
     severity: ERROR
     message: >-
       SQL query built by string concatenation or a template literal. Use parameterized queries
-      (placeholders like ? or $1 with a values array).
+      (? or numbered placeholders with a values array).
     metadata: {category: security, severity: critical, cwe: "CWE-89"}
     patterns:
       - pattern-either:

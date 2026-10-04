@@ -17,7 +17,7 @@ rules:
     languages: [rust]
     severity: ERROR
     message: >-
-      SQL built with format!(). Use bind parameters (?1 / $1 with params![] or .bind()).
+      SQL built with format!(). Use bind parameters (?1 with params![] or .bind()).
     metadata: {category: security, severity: critical, cwe: "CWE-89"}
     patterns:
       - pattern-either:

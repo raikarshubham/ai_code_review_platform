@@ -17,7 +17,7 @@ rules:
     languages: [go]
     severity: ERROR
     message: >-
-      SQL built with fmt.Sprintf or concatenation. Use placeholders (? or $1) and pass the values
+      SQL built with fmt.Sprintf or concatenation. Use placeholders (? or numbered ones for Postgres) and pass the values
       as arguments to Query/Exec.
     metadata: {category: security, severity: critical, cwe: "CWE-89"}
     patterns:
