@@ -45,7 +45,9 @@ def run_tool(
     base_command = executable or [sys.executable, "-m", module]
     with tempfile.TemporaryDirectory() as tmp_dir:
         snippet_name = SNIPPET_STEM + temp_ext
-        Path(tmp_dir, snippet_name).write_text(code, encoding="utf-8")
+        # newline="": write the code's line endings as-is. Text mode would turn \n into \r\n on
+        # Windows, and line-ending checks (yamllint new-lines) would flag code that is fine.
+        Path(tmp_dir, snippet_name).write_text(code, encoding="utf-8", newline="")
         command = [*base_command, *args, snippet_name]
         try:
             completed = subprocess.run(

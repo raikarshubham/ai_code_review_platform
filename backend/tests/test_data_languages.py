@@ -110,6 +110,14 @@ def test_yaml_pipeline_real():
     assert {"key-duplicates", "yaml-privileged-container", "yaml-unpinned-image"} <= rule_ids
 
 
+def test_clean_yaml_has_no_line_ending_issue():
+    # Regression: the temp file was written in text mode, so on Windows every \n became \r\n
+    # and yamllint flagged line 1 with `new-lines` for code the user never wrote that way.
+    result = analyze("name: demo\nreplicas: 2\n", Language.YAML)
+    assert result.tool_errors == {}
+    assert "new-lines" not in {issue.rule_id for issue in result.issues}
+
+
 # --- JSON ---------------------------------------------------------------------------------
 
 
