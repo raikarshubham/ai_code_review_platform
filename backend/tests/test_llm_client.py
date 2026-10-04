@@ -56,6 +56,16 @@ def test_http_errors_raise_without_leaking_the_key(status):
     assert "secret" not in str(caught.value)
 
 
+@pytest.mark.parametrize("body", [
+    {"error": {"message": "Please pass a valid API key"}},  # OpenAI / Groq shape
+    [{"error": {"code": 400, "message": "Please pass a valid API key"}}],  # Gemini shape
+])
+def test_http_error_shows_the_providers_message(body):
+    with pytest.raises(LLMError) as caught:
+        client_with(lambda request: httpx.Response(400, json=body)).chat_json([])
+    assert str(caught.value) == "gemini returned HTTP 400: Please pass a valid API key"
+
+
 def test_timeout_raises():
     def handler(request):
         raise httpx.ReadTimeout("slow", request=request)

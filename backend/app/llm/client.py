@@ -42,13 +42,28 @@ class LLMClient:
 
         if response.status_code != 200:
             # Never echo the request back: it carries the API key in a header.
-            raise LLMError(f"{self.settings.provider} returned HTTP {response.status_code}: {response.text[:200]}")
+            detail = error_detail(response)
+            raise LLMError(f"{self.settings.provider} returned HTTP {response.status_code}: {detail}")
 
         try:
             content = response.json()["choices"][0]["message"]["content"]
         except (ValueError, KeyError, IndexError, TypeError) as exc:
             raise LLMError(f"unexpected response shape from {self.settings.provider}") from exc
         return parse_json_object(content)
+
+
+def error_detail(response: httpx.Response) -> str:
+    """The provider's own error message, e.g. "Please pass a valid API key", else raw text.
+
+    OpenAI-style APIs send {"error": {"message": ...}}; Gemini wraps that object in a list.
+    """
+    try:
+        body = response.json()
+        if isinstance(body, list) and body:
+            body = body[0]
+        return str(body["error"]["message"])[:200]
+    except (ValueError, KeyError, TypeError):
+        return response.text[:200]
 
 
 def parse_json_object(content: str | None) -> dict:
