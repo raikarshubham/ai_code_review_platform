@@ -101,6 +101,38 @@ with neither it defaults to Python. An unknown extension is a 422 error, not a g
 A language's analyzers run in parallel. If one crashes or times out (20 s), its error goes in
 `tool_errors` and the other tools' results are still returned.
 
+## AI review
+
+Set `LLM_PROVIDER` (`gemini`, `groq` or `ollama`) and `LLM_API_KEY` in `.env` to turn it on.
+All three providers speak the OpenAI chat-completions API, so one small httpx client
+(`backend/app/llm/`) talks to all of them. Bad settings stop the server at startup.
+
+The model gets the code with line numbers, in a fence tagged with the language, plus the static
+findings as `F1, F2, ...` (info-level ones are left out to save free-tier quota). It replies in
+JSON mode with a verdict, explanation and fix for each finding, and any bugs the tools missed.
+
+The reply is treated as untrusted input and validated before it's used:
+
+- verdicts for finding ids we never sent are dropped
+- new issues with line numbers outside the file, style issues, or unknown categories and
+  severities are dropped
+- a **critical security finding can never be dismissed** as a false positive (counted in
+  `ai_review.overridden`)
+- issues the AI adds are capped at **high**, so only the deterministic tools can mark something
+  critical (which caps the score at 50)
+- new issues that repeat a static finding on the same line are dropped, and at most 15 are kept
+- one malformed item is skipped; only a reply with the wrong overall shape counts as a failure
+
+In the response, each issue can carry an `ai` object:
+`{verdict: "confirmed" | "false_positive", explanation, fix, fixed_code, fix_start_line, fix_end_line}`.
+`fixed_code` replaces lines `fix_start_line..fix_end_line`. Issues the AI found have
+`tool: "ai"`. **False positives stay in the list**, so you can see what was dismissed and why,
+but they sort last and don't count toward `score` or `summary`.
+
+If the LLM fails (network error, bad key, unusable reply), `/analyze` still returns the static
+results, with the reason in `ai_review.error`. Tests never call a real LLM: they use
+`httpx.MockTransport`, and `tests/conftest.py` forces `LLM_PROVIDER=off`.
+
 ## Scoring
 
 ```
