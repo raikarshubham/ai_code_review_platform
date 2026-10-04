@@ -1,12 +1,15 @@
 """Reviewer prompt and validation. The LLM is always a mock."""
 
 import json
+import re
 from pathlib import Path
 
 import httpx
 import pytest
 
 from app.languages import SPECS, Language
+from app.llm import chunking
+from app.llm.chunking import Chunk
 from app.llm.client import LLMClient, LLMError
 from app.llm.config import LLMSettings
 from app.llm.prompt import build_messages, number_lines
@@ -178,3 +181,88 @@ def test_mocked_model_reports_the_process_logic_bug():
     merged, status = review(PROCESS_BUG_CODE, PYTHON, [], mock_client(reply))
     assert (merged[0].tool, merged[0].line, merged[0].rule_id) == ("ai", 69, "ai-unbound-local")
     assert (status.provider, status.model, status.added) == ("gemini", "m", 1)
+
+
+# --- Chunked review (long files) ------------------------------------------------------------
+
+# 30 small functions after a 2-line header: ~660 lines, so 3 chunks of at most 300 lines.
+LONG_CODE = "import os\n\n" + "".join(
+    f"def f{n}():\n" + "".join(f"    x{i} = {i}\n" for i in range(18)) + "    return os.sep\n\n\n" for n in range(30)
+)
+CHUNKS = chunking.plan(LONG_CODE, PYTHON).chunks
+
+
+def chunked_client(make_reply, prompts: list | None = None) -> LLMClient:
+    """A mock model whose reply depends on which chunk it was sent (read from the prompt)."""
+
+    def handler(request):
+        user = json.loads(request.content)["messages"][1]["content"]
+        if prompts is not None:
+            prompts.append(user)
+        found = re.search(r"This is lines ([0-9]+)-([0-9]+)", user)
+        chunk = Chunk(int(found.group(1)), int(found.group(2)))
+        reply = make_reply(chunk, re.findall(r"^(F[0-9]+): line ([0-9]+)", user, flags=re.MULTILINE))
+        if isinstance(reply, httpx.Response):
+            return reply
+        return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps(reply)}}]})
+
+    settings = LLMSettings(provider="gemini", base_url="https://llm.test/v1", model="m", api_key="k")
+    return LLMClient(settings, transport=httpx.MockTransport(handler), sleep=lambda seconds: None)
+
+
+def one_issue_per_chunk() -> list[Issue]:
+    return [issue(line=chunk.start + 5, rule_id=f"R{n}") for n, chunk in enumerate(CHUNKS)]
+
+
+def test_long_file_is_reviewed_in_chunks_with_real_line_numbers():
+    assert len(CHUNKS) == 3
+    prompts = []
+    review(LONG_CODE, PYTHON, one_issue_per_chunk(), chunked_client(lambda chunk, ids: {}, prompts))
+
+    prompts.sort(key=lambda user: int(re.search(r"This is lines ([0-9]+)", user).group(1)))
+    for n, (user, chunk) in enumerate(zip(prompts, CHUNKS)):
+        assert f"This is lines {chunk.start}-{chunk.end} of a {len(LONG_CODE.splitlines())}-line file" in user
+        width = len(str(chunk.end))  # numbers are right-aligned to the widest one in the chunk
+        assert f"\n{chunk.start:>{width}} | " in user  # file line numbers, not 1..n
+        assert f"pylint R{n}," in user  # its own finding...
+        assert sum(f"pylint R{other}," in user for other in range(3)) == 1  # ...and no one else's
+        assert ("File header, for context only" in user) == (n > 0)
+
+
+def test_new_issue_outside_its_chunk_is_dropped():
+    def reply(chunk, ids):
+        # Each chunk's model reports one issue inside its chunk and one in the next chunk's lines.
+        inside = {"line": chunk.start + 1, "category": "bug", "severity": "high", "title": "in", "explanation": "e"}
+        outside = {**inside, "line": chunk.end + 1, "title": "out"}
+        return {"new_issues": [inside, outside]}
+
+    merged, status = review(LONG_CODE, PYTHON, [], chunked_client(reply))
+    assert {i.message for i in merged} == {"in"}
+    assert status.added == 3
+
+
+def test_one_failing_chunk_keeps_the_others():
+    def reply(chunk, ids):
+        if chunk == CHUNKS[1]:
+            return httpx.Response(400, json={"error": {"message": "bad chunk"}})
+        return {"findings": [{"id": fid, "verdict": "confirmed", "explanation": "yes"} for fid, _ in ids]}
+
+    merged, status = review(LONG_CODE, PYTHON, one_issue_per_chunk(), chunked_client(reply))
+    assert [i.ai is not None for i in merged] == [True, False, True]
+    assert status.error == "1 of 3 chunks failed: gemini returned HTTP 400: bad chunk"
+    assert (status.chunks, status.confirmed) == (3, 2)
+
+
+def test_all_chunks_failing_raises():
+    client = chunked_client(lambda chunk, ids: httpx.Response(400, json={"error": {"message": "no"}}))
+    with pytest.raises(LLMError, match="all 3 chunks failed"):
+        review(LONG_CODE, PYTHON, [], client)
+
+
+def test_new_issue_cap_applies_to_the_whole_file():
+    def reply(chunk, ids):
+        return {"new_issues": [{"line": chunk.start + n, "category": "bug", "severity": "low", "title": "t",
+                                "explanation": "e"} for n in range(10)]}
+
+    _, status = review(LONG_CODE, PYTHON, [], chunked_client(reply))
+    assert status.added == MAX_NEW_ISSUES

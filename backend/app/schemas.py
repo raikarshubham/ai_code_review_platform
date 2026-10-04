@@ -102,6 +102,8 @@ class AIReview(BaseModel):
     false_positives: int = 0
     added: int = Field(default=0, description="New issues the AI found that the tools missed")
     overridden: int = Field(default=0, description="Dismissals of critical security findings we refused")
+    chunks: int = Field(default=0, description="LLM requests sent; long files are split by function")
+    truncated: bool = Field(default=False, description="File too long: only its first chunks were reviewed")
     error: str | None = None
 
 
