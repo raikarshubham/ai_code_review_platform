@@ -152,7 +152,7 @@ report (for example `eval` from both Pylint and Bandit) are merged into one.
 - [x] Day 2: Pylint + Bandit runners, JSON output parsed
 - [x] Day 3: Radon, `Issue` normalization, dedupe, sort, score, tests on `samples/buggy.py`
 - [x] Day 3.5: 19 languages: language list, Lizard, Semgrep with our own rules, SQL/YAML/JSON/CSS checks, language picker
-- [ ] Day 4: LLM client + reviewer prompt + validation
+- [x] Day 4: LLM client + reviewer prompt + validation
 - [ ] Day 5: Retries, rate limits, chunking, fallback; `scripts/check_llm.py`
 - [ ] Day 6: Prompt tuning on 10-15 buggy snippets
 - [ ] Day 7: Buffer
