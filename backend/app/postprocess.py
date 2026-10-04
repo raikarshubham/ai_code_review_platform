@@ -52,4 +52,7 @@ def dedupe(issues: list[Issue]) -> list[Issue]:
 
 
 def sort_issues(issues: list[Issue]) -> list[Issue]:
-    return sorted(issues, key=lambda issue: (SEVERITY_RANK[issue.severity], issue.line, issue.tool))
+    # False positives go last: still visible, but below everything that counts.
+    return sorted(
+        issues, key=lambda issue: (issue.is_false_positive, SEVERITY_RANK[issue.severity], issue.line, issue.tool)
+    )

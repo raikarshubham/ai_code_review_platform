@@ -1,7 +1,7 @@
-"""Analysis pipeline: syntax check -> static analyzers (parallel) -> dedupe -> sort -> score.
+"""Analysis pipeline: syntax check -> static analyzers (parallel) -> dedupe -> AI review -> sort -> score.
 
-Which analyzers run depends on the language (see app/languages.py). The LLM reviewer (Day 4)
-plugs in after the static analyzers without changing the API contract.
+Which analyzers run depends on the language (see app/languages.py). The AI review is optional
+and can fail on its own: the static results are always returned.
 """
 
 import ast
@@ -21,8 +21,10 @@ from app.analyzers import (
 )
 from app.analyzers.runner import AnalyzerError
 from app.languages import SPECS, Language, LanguageSpec
+from app.llm.client import LLMClient, LLMError
+from app.llm.reviewer import review
 from app.postprocess import dedupe, sort_issues
-from app.schemas import AnalyzeResponse, Category, Issue, Severity
+from app.schemas import AIReview, AnalyzeResponse, Category, Issue, Severity
 from app.scoring import score
 
 # Each analyzer module exposes NAME and run(code, spec) -> list[Issue].
@@ -87,7 +89,20 @@ def summarize(issues: list[Issue]) -> dict[Severity, int]:
     return counts
 
 
-def analyze(code: str, language: Language = Language.PYTHON) -> AnalyzeResponse:
+def ai_review_step(
+    code: str, spec: LanguageSpec, issues: list[Issue], client: LLMClient | None
+) -> tuple[list[Issue], AIReview]:
+    """Run the LLM reviewer. If it fails, keep the static issues and say why in ai_review.error."""
+    if client is None:
+        return issues, AIReview()
+    try:
+        return review(code, spec, issues, client)
+    except LLMError as exc:
+        settings = client.settings
+        return issues, AIReview(enabled=True, provider=settings.provider, model=settings.model, error=str(exc))
+
+
+def analyze(code: str, language: Language = Language.PYTHON, llm_client: LLMClient | None = None) -> AnalyzeResponse:
     spec = SPECS[language]
 
     if language == Language.PYTHON:
@@ -98,12 +113,17 @@ def analyze(code: str, language: Language = Language.PYTHON) -> AnalyzeResponse:
             )
 
     raw_issues, tool_errors = run_analyzers(code, spec)
-    issues = sort_issues(dedupe(raw_issues))
+    issues, ai_status = ai_review_step(code, spec, dedupe(raw_issues), llm_client)
+    issues = sort_issues(issues)
 
+    # False positives stay in the response, so the user sees what was dismissed and why, but
+    # they don't cost points.
+    counted = [issue for issue in issues if not issue.is_false_positive]
     return AnalyzeResponse(
         language=language,
         issues=issues,
-        score=score(issues, code, spec.comment_prefixes),
-        summary=summarize(issues),
+        score=score(counted, code, spec.comment_prefixes),
+        summary=summarize(counted),
         tool_errors=tool_errors,
+        ai_review=ai_status,
     )
