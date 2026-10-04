@@ -15,8 +15,39 @@ def reply(content: str) -> httpx.Response:
     return httpx.Response(200, json={"choices": [{"message": {"role": "assistant", "content": content}}]})
 
 
-def client_with(handler) -> LLMClient:
-    return LLMClient(SETTINGS, transport=httpx.MockTransport(handler))
+class FakeTime:
+    """Stands in for time.sleep and time.monotonic: sleeping just moves the clock forward."""
+
+    def __init__(self):
+        self.now = 0.0
+        self.waits: list[float] = []
+
+    def clock(self) -> float:
+        return self.now
+
+    def sleep(self, seconds: float) -> None:
+        self.waits.append(seconds)
+        self.now += seconds
+
+
+def client_with(handler, fake_time: FakeTime | None = None) -> LLMClient:
+    fake_time = fake_time or FakeTime()
+    return LLMClient(SETTINGS, transport=httpx.MockTransport(handler), sleep=fake_time.sleep, clock=fake_time.clock)
+
+
+def scripted(*responses):
+    """A handler that returns the given responses in order and counts the requests."""
+    queue = list(responses)
+
+    def handler(request):
+        handler.calls += 1
+        response = queue.pop(0)
+        if isinstance(response, Exception):
+            raise response
+        return response
+
+    handler.calls = 0
+    return handler
 
 
 def test_request_shape_and_parsed_reply():
@@ -77,3 +108,92 @@ def test_timeout_raises():
 def test_unexpected_response_shape_raises():
     with pytest.raises(LLMError, match="shape"):
         client_with(lambda request: httpx.Response(200, json={"error": "x"})).chat_json([])
+
+
+# --- Retries --------------------------------------------------------------------------------
+
+OK = reply('{"ok": true}')
+
+
+def overloaded():
+    return httpx.Response(503, json=[{"error": {"message": "high demand"}}])
+
+
+def test_503_is_retried_with_exponential_backoff():
+    time_ = FakeTime()
+    handler = scripted(overloaded(), overloaded(), OK)
+    assert client_with(handler, time_).chat_json([]) == {"ok": True}
+    assert (handler.calls, time_.waits) == (3, [2, 4])
+
+
+def test_gives_up_after_three_attempts():
+    handler = scripted(overloaded(), overloaded(), overloaded())
+    with pytest.raises(LLMError, match=r"503: high demand \(gave up after 3 attempts\)"):
+        client_with(handler).chat_json([])
+    assert handler.calls == 3
+
+
+def test_429_waits_as_long_as_retry_after_says():
+    time_ = FakeTime()
+    handler = scripted(httpx.Response(429, headers={"Retry-After": "3"}, text="slow down"), OK)
+    client_with(handler, time_).chat_json([])
+    assert time_.waits == [3]
+
+
+def test_429_uses_geminis_retry_delay_from_the_body():
+    body = [{"error": {"code": 429, "message": "quota", "details": [
+        {"@type": "type.googleapis.com/google.rpc.RetryInfo", "retryDelay": "7s"}]}}]
+    time_ = FakeTime()
+    client_with(scripted(httpx.Response(429, json=body), OK), time_).chat_json([])
+    assert time_.waits == [7]
+
+
+def test_long_retry_after_fails_now_instead_of_waiting():
+    time_ = FakeTime()
+    handler = scripted(httpx.Response(429, headers={"Retry-After": "45"}))
+    with pytest.raises(LLMError, match="rate limited; retry after 45s"):
+        client_with(handler, time_).chat_json([])
+    assert time_.waits == []
+
+
+@pytest.mark.parametrize("status", [400, 401, 403, 404])
+def test_client_errors_are_not_retried(status):
+    handler = scripted(httpx.Response(status, text="no"), OK)
+    with pytest.raises(LLMError, match=str(status)):
+        client_with(handler).chat_json([])
+    assert handler.calls == 1
+
+
+def test_invalid_json_is_retried_once():
+    handler = scripted(reply("not json"), OK)
+    assert client_with(handler).chat_json([]) == {"ok": True}
+    handler = scripted(reply("not json"), reply("still not"), OK)
+    with pytest.raises(LLMError, match="not valid JSON"):
+        client_with(handler).chat_json([])
+    assert handler.calls == 2
+
+
+def test_timeout_is_not_retried():
+    request = httpx.Request("POST", "https://llm.test")
+    handler = scripted(httpx.ReadTimeout("slow", request=request), OK)
+    with pytest.raises(LLMError, match="timed out"):
+        client_with(handler).chat_json([])
+    assert handler.calls == 1
+
+
+def test_connection_errors_are_retried():
+    request = httpx.Request("POST", "https://llm.test")
+    handler = scripted(httpx.ConnectError("refused", request=request), OK)
+    assert client_with(handler).chat_json([]) == {"ok": True}
+
+
+def test_deadline_stops_further_retries():
+    time_ = FakeTime()
+
+    def slow_overloaded(request):
+        time_.now += 59  # each attempt takes 59 s of the 120 s budget
+        return overloaded()
+
+    with pytest.raises(LLMError, match="gave up after 2 attempts"):
+        client_with(slow_overloaded, time_).chat_json([])
+    assert time_.waits == [2]  # 59 + 2 + 59 = 120: no time left for a third try

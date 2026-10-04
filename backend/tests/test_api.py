@@ -75,7 +75,8 @@ def test_buggy_sample_is_valid_python():
 
 def mock_llm(handler) -> LLMClient:
     settings = LLMSettings(provider="gemini", base_url="https://llm.test/v1", model="m", api_key="k")
-    return LLMClient(settings, transport=httpx.MockTransport(handler))
+    # sleep=no-op: retried 503s in these tests shouldn't really wait 2 s + 4 s.
+    return LLMClient(settings, transport=httpx.MockTransport(handler), sleep=lambda seconds: None)
 
 
 def dismiss_everything_model(request):

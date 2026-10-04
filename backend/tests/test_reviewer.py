@@ -159,7 +159,8 @@ def mock_client(reply: dict, seen: dict | None = None) -> LLMClient:
         return httpx.Response(200, json={"choices": [{"message": {"content": content}}]})
 
     settings = LLMSettings(provider="gemini", base_url="https://llm.test/v1", model="m", api_key="k")
-    return LLMClient(settings, transport=httpx.MockTransport(handler))
+    # sleep=no-op: retried 503s in these tests shouldn't really wait 2 s + 4 s.
+    return LLMClient(settings, transport=httpx.MockTransport(handler), sleep=lambda seconds: None)
 
 
 def test_info_findings_are_not_sent():
