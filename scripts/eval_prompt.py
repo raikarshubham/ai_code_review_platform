@@ -35,6 +35,7 @@ from evals.harness import as_dict, load_snippets, score, totals  # noqa: E402
 
 RESULTS_DIR = BACKEND / "evals" / "results"
 PAUSE_SECONDS = 2  # between snippets, to stay well under free-tier requests per minute
+ERROR_PAUSE_SECONDS = 30  # before re-running a snippet whose AI review failed (e.g. a 503 spell)
 
 
 def prompt_hash() -> str:
@@ -91,6 +92,13 @@ def run(args) -> int:
             time.sleep(PAUSE_SECONDS)
         started = time.monotonic()
         response = analyze(snippet.code, snippet.language, client)
+        if response.ai_review.error and "rate limited" not in response.ai_review.error:
+            # A 503 spell would score as "the prompt missed everything" and skew the comparison,
+            # so try once more after a pause. Rate limits are not retried: that only burns quota.
+            print(f"  {snippet.name}: {response.ai_review.error[:80]}; retrying in {ERROR_PAUSE_SECONDS}s", flush=True)
+            time.sleep(ERROR_PAUSE_SECONDS)
+            started = time.monotonic()
+            response = analyze(snippet.code, snippet.language, client)
         seconds = round(time.monotonic() - started, 1)
         scores.append(score(snippet, response, seconds))
         records.append({"name": snippet.name, "seconds": seconds, "response": response.model_dump(mode="json")})
