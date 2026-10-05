@@ -52,7 +52,8 @@ over clever.
 - Semgrep rules: write our own in `backend/rules/`, never copy from the Semgrep Registry (its
   license doesn't allow use in a service). Every rule file needs a fixture with
   `ruleid:`/`ok:` comments, and no rule message may contain `$` (Semgrep substitutes it).
-- Frontend: React + Vite (Monaco editor from Day 8).
+- Frontend: React + Vite, Monaco (bundled via `loader.config`, editor core + basic-language
+  highlighters only, no language services), Vitest for pure modules in `src/editor/`.
 - Later: PostgreSQL, Docker, deploy to Render or Railway (backend) and Vercel (frontend).
 
 ## Severity calibration
@@ -73,7 +74,8 @@ SQL injection are critical, eval and hardcoded secrets are high.
 - Day 5: retries, rate limits, chunking, fallback; `scripts/check_llm.py` end-to-end check
 - Day 6: tune the prompt on 10-15 buggy snippets. Key target: catch `process()` in
   samples/buggy.py returning `result`, which is unbound when the try block raises
-  (Pylint misses this)
+  (Pylint misses this). Paused for the free-tier quota and finished after Days 8-10:
+  prompt v2 waits on branch `day6-prompt-v2` until a measured run shows it helps.
 - Day 7: buffer
 - Day 8-10: Monaco editor, inline severity annotations, side-by-side fix diffs
 - Day 11-12: dashboard (score, issues by category, complexity chart), PostgreSQL history
