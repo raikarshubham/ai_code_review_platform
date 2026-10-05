@@ -10,6 +10,9 @@
 import { loader } from '@monaco-editor/react'
 import * as monaco from 'monaco-editor/editor.js'
 import EditorWorker from 'monaco-editor/editor/editor.worker.js?worker'
+// Monaco's icon font (fold arrows, diff gutter, "N hidden lines"). The editor core above doesn't
+// include it; without it every icon renders as an empty box.
+import 'monaco-editor/features/codicon/register.js'
 
 import 'monaco-editor/languages/definitions/python/register.js'
 import 'monaco-editor/languages/definitions/javascript/register.js'

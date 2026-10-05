@@ -1,10 +1,12 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { analyzeCode, checkHealth, getLanguages } from './api.js'
+import { canApply } from './editor/fixes.js'
 import { SAMPLES } from './samples.js'
 import './App.css'
 
 // Monaco is large, so it loads in its own chunk after the page shell is on screen.
 const CodeEditor = lazy(() => import('./editor/CodeEditor.jsx'))
+const FixDiff = lazy(() => import('./editor/FixDiff.jsx'))
 
 const DEFAULT_LANGUAGE = 'python'
 const NO_ISSUES = [] // a stable empty list, so the editor doesn't redo its markers every render
@@ -25,7 +27,7 @@ function HealthBadge() {
   return <span className={`badge badge-${status}`}>API: {status}</span>
 }
 
-function IssueList({ issues, onSelect }) {
+function IssueList({ issues, onSelect, onShowFix, stale }) {
   if (issues.length === 0) return <p className="muted">No issues found.</p>
 
   return (
@@ -49,7 +51,7 @@ function IssueList({ issues, onSelect }) {
             <span className="meta">
               {issue.tool} · {issue.rule_id} · {issue.category}
             </span>
-            {issue.ai && <AINote note={issue.ai} />}
+            {issue.ai && <AINote note={issue.ai} onShowFix={() => onShowFix(issue)} stale={stale} />}
           </li>
         )
       })}
@@ -59,7 +61,7 @@ function IssueList({ issues, onSelect }) {
 
 // Plain text rendering on purpose: everything here came from the LLM, so it is never
 // injected as HTML.
-function AINote({ note }) {
+function AINote({ note, onShowFix, stale }) {
   return (
     <div className="ai-note">
       <p>{note.explanation}</p>
@@ -68,13 +70,17 @@ function AINote({ note }) {
           <strong>Fix:</strong> {note.fix}
         </p>
       )}
-      {note.fixed_code && (
-        <>
-          <p className="muted">
-            Replace lines {note.fix_start_line}–{note.fix_end_line} with:
-          </p>
-          <pre>{note.fixed_code}</pre>
-        </>
+      {canApply(note) && (
+        <button
+          className="show-fix"
+          onClick={onShowFix}
+          disabled={stale}
+          // A fix's line numbers belong to the analyzed code; after an edit they could point at
+          // the wrong lines, so the diff is only offered for up-to-date results.
+          title={stale ? 'Re-analyze first: the code changed since this fix was suggested' : undefined}
+        >
+          Show fix (lines {note.fix_start_line}–{note.fix_end_line})
+        </button>
       )}
     </div>
   )
@@ -139,13 +145,22 @@ export default function App() {
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
   const [reveal, setReveal] = useState(null) // { line, endLine, seq } for the editor to jump to
+  const [diffIssue, setDiffIssue] = useState(null) // issue whose fix is shown as a diff, or null
 
   // Line numbers in `result` only match the code that was analyzed. After an edit they may point
   // at the wrong lines, so say so instead of silently showing misplaced markers.
   const stale = result !== null && code !== analyzedCode
 
   function selectIssue(issue) {
+    setDiffIssue(null) // "show me this line" means the code, not an open diff
     setReveal((previous) => ({ line: issue.line, endLine: issue.end_line ?? issue.line, seq: (previous?.seq ?? 0) + 1 }))
+  }
+
+  function applyShownFix(patchedCode) {
+    // Every other fix's line numbers refer to the code before this change, so the results now
+    // count as out of date (stale) and their fixes stay disabled until the next analysis.
+    setCode(patchedCode)
+    setDiffIssue(null)
   }
 
   useEffect(() => {
@@ -163,11 +178,13 @@ export default function App() {
     setLanguage(next)
     setResult(null)
     setError(null)
+    setDiffIssue(null)
   }
 
   async function handleAnalyze() {
     setLoading(true)
     setError(null)
+    setDiffIssue(null)
     try {
       const submitted = code
       setResult(await analyzeCode(submitted, language))
@@ -208,15 +225,34 @@ export default function App() {
           </div>
           <div className="editor-box">
             <Suspense fallback={<div className="editor-loading">Loading editor…</div>}>
-              <CodeEditor
-                value={code}
-                onChange={setCode}
-                language={language}
-                label={`${languageLabel} code`}
-                issues={result?.issues ?? NO_ISSUES}
-                reveal={reveal}
-              />
+              {/* The editor stays mounted (just hidden) while a diff is open, so its undo history
+                  and scroll position survive. */}
+              <div className="editor-layer" hidden={diffIssue !== null}>
+                <CodeEditor
+                  value={code}
+                  onChange={setCode}
+                  language={language}
+                  label={`${languageLabel} code`}
+                  issues={result?.issues ?? NO_ISSUES}
+                  reveal={reveal}
+                />
+              </div>
             </Suspense>
+            {/* A separate Suspense boundary on purpose: if the lazy diff chunk loaded inside the
+                editor's boundary, React would suspend that boundary too, and the cleanup it runs
+                disposes the Monaco editor ("InstantiationService has been disposed"). */}
+            {diffIssue && (
+              <Suspense fallback={<div className="editor-loading">Loading diff…</div>}>
+                <FixDiff
+                  code={code}
+                  issue={diffIssue}
+                  language={language}
+                  canApply={!stale}
+                  onApply={applyShownFix}
+                  onClose={() => setDiffIssue(null)}
+                />
+              </Suspense>
+            )}
           </div>
         </section>
 
@@ -241,7 +277,7 @@ export default function App() {
               )}
               <ToolErrors errors={result.tool_errors} />
               <AIStatus review={result.ai_review} />
-              <IssueList issues={result.issues} onSelect={selectIssue} />
+              <IssueList issues={result.issues} onSelect={selectIssue} onShowFix={setDiffIssue} stale={stale} />
             </>
           )}
         </section>

@@ -171,15 +171,44 @@
   border-top: 1px dashed var(--border);
 }
 .ai-note p { margin: 4px 0; }
-.ai-note pre {
-  margin: 4px 0 0;
-  padding: 8px 10px;
-  overflow-x: auto;
+.show-fix,
+.fix-diff-actions button {
+  padding: 4px 12px;
+  font: inherit;
   font-size: 0.85rem;
-  background: var(--bg);
-  border: 1px solid var(--border);
+  font-weight: 600;
+  color: var(--accent);
+  background: none;
+  border: 1px solid var(--accent);
   border-radius: 6px;
+  cursor: pointer;
 }
+.show-fix { margin-top: 6px; }
+.show-fix:disabled,
+.fix-diff-actions button:disabled { opacity: 0.5; cursor: not-allowed; }
+.fix-diff-actions button.primary { color: #fff; background: var(--accent); }
+
+/* The diff takes the editor's place in the left column while it's open. */
+.editor-layer { height: 100%; }
+.fix-diff {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.fix-diff-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.fix-diff-title { font-weight: 600; }
+.fix-diff-title .muted { font-weight: 400; font-size: 0.85rem; }
+.fix-diff-actions { display: flex; gap: 8px; }
+.fix-diff-editor { flex: 1; min-height: 0; }
 
 .severity {
   padding: 2px 8px;

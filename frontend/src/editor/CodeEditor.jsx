@@ -5,21 +5,9 @@ import { useEffect, useRef, useState } from 'react'
 import './monaco.js'
 import { monacoLanguage } from './languages.js'
 import { gutterDots, toMarkers } from './markers.js'
+import { usePrefersDark } from './theme.js'
 
 const MARKER_OWNER = 'review' // our markers, kept apart from any other source's
-
-const DARK_QUERY = '(prefers-color-scheme: dark)'
-
-function usePrefersDark() {
-  const [dark, setDark] = useState(() => window.matchMedia(DARK_QUERY).matches)
-  useEffect(() => {
-    const query = window.matchMedia(DARK_QUERY)
-    const update = () => setDark(query.matches)
-    query.addEventListener('change', update)
-    return () => query.removeEventListener('change', update)
-  }, [])
-  return dark
-}
 
 const OPTIONS = {
   minimap: { enabled: false },
