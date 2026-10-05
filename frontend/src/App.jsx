@@ -7,6 +7,7 @@ import './App.css'
 const CodeEditor = lazy(() => import('./editor/CodeEditor.jsx'))
 
 const DEFAULT_LANGUAGE = 'python'
+const NO_ISSUES = [] // a stable empty list, so the editor doesn't redo its markers every render
 
 // Used only if GET /languages fails, so the page stays usable (the badge shows the API is down).
 const FALLBACK_LANGUAGES = Object.keys(SAMPLES).map((id) => ({ id, label: id }))
@@ -24,7 +25,7 @@ function HealthBadge() {
   return <span className={`badge badge-${status}`}>API: {status}</span>
 }
 
-function IssueList({ issues }) {
+function IssueList({ issues, onSelect }) {
   if (issues.length === 0) return <p className="muted">No issues found.</p>
 
   return (
@@ -37,7 +38,9 @@ function IssueList({ issues }) {
             className={falsePositive ? 'issue issue-dismissed' : 'issue'}
           >
             <span className={`severity severity-${issue.severity}`}>{issue.severity}</span>
-            <span className="line">Line {issue.line}</span>
+            <button className="line" onClick={() => onSelect(issue)} title="Show in editor">
+              Line {issue.line}
+            </button>
             <span className="message">
               {issue.message}
               {falsePositive && <span className="tag">false positive (not scored)</span>}
@@ -132,8 +135,18 @@ export default function App() {
   const [language, setLanguage] = useState(DEFAULT_LANGUAGE)
   const [code, setCode] = useState(SAMPLES[DEFAULT_LANGUAGE])
   const [result, setResult] = useState(null)
+  const [analyzedCode, setAnalyzedCode] = useState(null) // the code `result` belongs to
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [reveal, setReveal] = useState(null) // { line, endLine, seq } for the editor to jump to
+
+  // Line numbers in `result` only match the code that was analyzed. After an edit they may point
+  // at the wrong lines, so say so instead of silently showing misplaced markers.
+  const stale = result !== null && code !== analyzedCode
+
+  function selectIssue(issue) {
+    setReveal((previous) => ({ line: issue.line, endLine: issue.end_line ?? issue.line, seq: (previous?.seq ?? 0) + 1 }))
+  }
 
   useEffect(() => {
     getLanguages()
@@ -156,7 +169,9 @@ export default function App() {
     setLoading(true)
     setError(null)
     try {
-      setResult(await analyzeCode(code, language))
+      const submitted = code
+      setResult(await analyzeCode(submitted, language))
+      setAnalyzedCode(submitted)
     } catch (err) {
       setResult(null)
       setError(err.message)
@@ -193,7 +208,14 @@ export default function App() {
           </div>
           <div className="editor-box">
             <Suspense fallback={<div className="editor-loading">Loading editor…</div>}>
-              <CodeEditor value={code} onChange={setCode} language={language} label={`${languageLabel} code`} />
+              <CodeEditor
+                value={code}
+                onChange={setCode}
+                language={language}
+                label={`${languageLabel} code`}
+                issues={result?.issues ?? NO_ISSUES}
+                reveal={reveal}
+              />
             </Suspense>
           </div>
         </section>
@@ -211,9 +233,15 @@ export default function App() {
                 Score: <span className="score">{result.score}</span>/100
                 <span className="result-language">{languageLabel}</span>
               </h2>
+              {stale && (
+                <div className="warning stale" role="status">
+                  <span>Code changed since this analysis, so line numbers may be off.</span>
+                  <button onClick={handleAnalyze} disabled={loading}>Re-analyze</button>
+                </div>
+              )}
               <ToolErrors errors={result.tool_errors} />
               <AIStatus review={result.ai_review} />
-              <IssueList issues={result.issues} />
+              <IssueList issues={result.issues} onSelect={selectIssue} />
             </>
           )}
         </section>

@@ -127,7 +127,32 @@
   font-size: 0.8rem;
   color: var(--muted);
 }
-.line { font-family: ui-monospace, Consolas, monospace; color: var(--muted); }
+.line {
+  padding: 0;
+  font: inherit;
+  font-family: ui-monospace, Consolas, monospace;
+  color: var(--muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.line:hover, .line:focus-visible { color: var(--accent); text-decoration: underline; }
+
+.stale {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.stale button {
+  padding: 4px 12px;
+  font-weight: 600;
+  color: #fff;
+  background: #a16207;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
 .issue-dismissed { opacity: 0.55; }
 
 .tag {
@@ -164,6 +189,21 @@
   text-transform: uppercase;
   color: #fff;
 }
+/* Gutter dots in the editor (Monaco renders these class names into its own DOM). */
+.gutter-dot::before {
+  content: '';
+  display: block;
+  width: 8px;
+  height: 8px;
+  margin: 6px auto 0;
+  border-radius: 50%;
+}
+.gutter-dot-critical::before { background: #b91c1c; }
+.gutter-dot-high::before { background: #ea580c; }
+.gutter-dot-medium::before { background: #ca8a04; }
+.gutter-dot-low::before { background: #2563eb; }
+.gutter-dot-info::before { background: #64748b; }
+
 .severity-critical { background: #b91c1c; }
 .severity-high { background: #ea580c; }
 .severity-medium { background: #ca8a04; }
