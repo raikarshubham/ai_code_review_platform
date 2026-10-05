@@ -1,7 +1,53 @@
 .app {
-  max-width: 960px;
+  max-width: 1440px;
   margin: 0 auto;
-  padding: 24px 16px;
+  padding: 20px 16px;
+}
+
+/* Editor on the left, results on the right; stacked on narrow screens. Each column scrolls on
+   its own so the code stays in view while you read the issues. */
+.workspace {
+  --pane-height: calc(100vh - 110px);
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 16px;
+  margin-top: 16px;
+}
+@media (max-width: 900px) {
+  .workspace {
+    --pane-height: 70vh;
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.results {
+  max-height: var(--pane-height);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.results h2 { margin-top: 0; }
+.placeholder { margin-top: 48px; text-align: center; }
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.editor-box {
+  height: calc(var(--pane-height) - 52px);
+  min-height: 320px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.editor-loading {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  color: var(--muted);
 }
 
 .header {
@@ -30,25 +76,10 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  margin-top: 20px;
+  min-width: 0;
 }
 
-.editor textarea {
-  min-height: 280px;
-  padding: 12px;
-  font-family: ui-monospace, Consolas, 'Courier New', monospace;
-  font-size: 14px;
-  line-height: 1.5;
-  color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  resize: vertical;
-  tab-size: 4;
-}
-
-.editor button {
-  align-self: flex-start;
+.toolbar button {
   padding: 10px 20px;
   font-size: 1rem;
   font-weight: 600;
@@ -58,7 +89,7 @@
   border-radius: 8px;
   cursor: pointer;
 }
-.editor button:disabled {
+.toolbar button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
@@ -70,7 +101,6 @@
   border-radius: 8px;
 }
 
-.results h2 { margin-top: 24px; }
 .score { color: var(--accent); }
 .muted { color: var(--muted); }
 

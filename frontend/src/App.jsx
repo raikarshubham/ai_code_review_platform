@@ -1,7 +1,10 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { analyzeCode, checkHealth, getLanguages } from './api.js'
 import { SAMPLES } from './samples.js'
 import './App.css'
+
+// Monaco is large, so it loads in its own chunk after the page shell is on screen.
+const CodeEditor = lazy(() => import('./editor/CodeEditor.jsx'))
 
 const DEFAULT_LANGUAGE = 'python'
 
@@ -171,41 +174,50 @@ export default function App() {
         <HealthBadge />
       </header>
 
-      <section className="editor">
-        <label className="language-picker">
-          Language
-          <select value={language} onChange={handleLanguageChange}>
-            {languages.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <textarea
-          value={code}
-          onChange={(event) => setCode(event.target.value)}
-          spellCheck={false}
-          aria-label={`${languageLabel} code`}
-        />
-        <button onClick={handleAnalyze} disabled={loading || !code.trim()}>
-          {loading ? 'Analyzing… (the AI review can take up to a minute)' : 'Analyze'}
-        </button>
-      </section>
-
-      {error && <p className="error">{error}</p>}
-
-      {result && (
-        <section className="results">
-          <h2>
-            Score: <span className="score">{result.score}</span>/100
-            <span className="result-language">{languageLabel}</span>
-          </h2>
-          <ToolErrors errors={result.tool_errors} />
-          <AIStatus review={result.ai_review} />
-          <IssueList issues={result.issues} />
+      <div className="workspace">
+        <section className="editor">
+          <div className="toolbar">
+            <label className="language-picker">
+              Language
+              <select value={language} onChange={handleLanguageChange}>
+                {languages.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button onClick={handleAnalyze} disabled={loading || !code.trim()}>
+              {loading ? 'Analyzing… (the AI review can take up to a minute)' : 'Analyze'}
+            </button>
+          </div>
+          <div className="editor-box">
+            <Suspense fallback={<div className="editor-loading">Loading editor…</div>}>
+              <CodeEditor value={code} onChange={setCode} language={language} label={`${languageLabel} code`} />
+            </Suspense>
+          </div>
         </section>
-      )}
+
+        <section className="results">
+          {error && <p className="error">{error}</p>}
+          {!result && !error && (
+            <p className="muted placeholder">
+              Pick a language, paste or edit code, and press Analyze. Issues will appear here.
+            </p>
+          )}
+          {result && (
+            <>
+              <h2>
+                Score: <span className="score">{result.score}</span>/100
+                <span className="result-language">{languageLabel}</span>
+              </h2>
+              <ToolErrors errors={result.tool_errors} />
+              <AIStatus review={result.ai_review} />
+              <IssueList issues={result.issues} />
+            </>
+          )}
+        </section>
+      </div>
     </main>
   )
 }
