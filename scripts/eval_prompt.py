@@ -86,6 +86,10 @@ def run(args) -> int:
 
     client = LLMClient(settings)
     snippets = load_snippets(args.set)
+    if args.only:
+        # e.g. --only t08,t09: finish a run that the daily quota cut short, without redoing it all
+        prefixes = tuple(args.only.split(","))
+        snippets = [snippet for snippet in snippets if snippet.name.startswith(prefixes)]
     scores, records = [], []
     for n, snippet in enumerate(snippets):
         if n:
@@ -134,6 +138,7 @@ def main() -> int:
     parser.add_argument("--provider", choices=["gemini", "groq", "ollama"], help="overrides LLM_PROVIDER")
     parser.add_argument("--model", help="overrides LLM_MODEL")
     parser.add_argument("--label", default="run", help="name for the results file, e.g. baseline")
+    parser.add_argument("--only", help="comma-separated snippet name prefixes, e.g. t08,t09,t10")
     parser.add_argument("--rescore", type=Path, help="re-score a saved results file; no API calls")
     args = parser.parse_args()
     return rescore(args.rescore) if args.rescore else run(args)
