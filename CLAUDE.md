@@ -54,7 +54,8 @@ over clever.
   `ruleid:`/`ok:` comments, and no rule message may contain `$` (Semgrep substitutes it).
 - Frontend: React + Vite, Monaco (bundled via `loader.config`, editor core + basic-language
   highlighters only, no language services), Vitest for pure modules in `src/editor/`.
-- Later: PostgreSQL, Docker, deploy to Render or Railway (backend) and Vercel (frontend).
+- History lives in the browser (IndexedDB, via `idb`); there is no server database, on purpose.
+- Later: Docker, deploy to Render or Railway (backend) and Vercel (frontend).
 
 ## Severity calibration
 Bandit's defaults understate real risk. Override them: shell injection, `os.system` and SQL
@@ -78,7 +79,9 @@ SQL injection are critical, eval and hardcoded secrets are high.
   prompt v2 waits on branch `day6-prompt-v2` until a measured run shows it helps.
 - Day 7: buffer
 - Day 8-10: Monaco editor, inline severity annotations, side-by-side fix diffs
-- Day 11-12: dashboard (score, issues by category, complexity chart), PostgreSQL history
+- Day 11-12: dashboard (score, issues by category, complexity chart), history. Changed
+  2026-10-06: history is stored in the browser (IndexedDB), not in PostgreSQL, for privacy and
+  because there are no accounts. Day 11 = history, Day 12 = dashboard.
 - Day 13-14: Docker, deploy, README with architecture diagram, demo video
 
 ## Working agreements

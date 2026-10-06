@@ -110,6 +110,35 @@ for the backend settings (LLM provider and CORS origins).
 - **Out-of-date results.** Line numbers only match the code that was analyzed. After any edit or
   applied fix, a banner says so, and the other fixes stay disabled until you re-analyze. A fix is
   never applied to the wrong lines.
+- **History tab.** Every analysis is saved in the browser. **Open** brings back the code and its
+  results exactly as they were, with no new request and no LLM quota used. **Delete** and
+  **Clear history** remove them.
+
+### History is stored in the browser, not on a server
+
+The project has no database on purpose. A server database was considered and partly built, then
+dropped:
+
+- **Privacy.** The backend analyzes code and forgets it. Saved code stays on the user's own
+  machine.
+- **No accounts.** History would have been per-browser anyway, so a server database added no
+  feature a user would notice.
+- **Nothing to host.** There's no connection string, no free-tier database to keep alive, and
+  nothing extra that can fail.
+
+It uses **IndexedDB**, not localStorage. localStorage holds about 5 MB of strings and blocks the page on
+every read and write. One analysis can be over 100 kB of code plus its results. IndexedDB is
+asynchronous, stores objects as they are, and has a far larger quota. The small
+[`idb`](https://github.com/jakearchibald/idb) wrapper turns its callback events into promises
+(`frontend/src/history/store.js`).
+
+The last **50** analyses are kept, and saving and pruning happen in one transaction. History is
+a bonus: if IndexedDB is blocked (some private modes, disabled site data), analysis works as usual
+and the History tab says history isn't available. Tests run the real store against
+`fake-indexeddb`, an in-memory IndexedDB for Node.
+
+The trade-off is that history doesn't follow you to another browser or device. That would need
+user accounts and a server database.
 
 ## API
 
@@ -276,5 +305,6 @@ report (for example `eval` from both Pylint and Bandit) are merged into one.
 - [x] Day 6: Prompt tuning on 14 annotated snippets (prompt v3, see [Prompt evaluation](#prompt-evaluation))
 - [x] Day 7: Buffer: Semgrep timeout + retry, `gemini-3.5-flash-lite` as the default model
 - [x] Day 8-10: Monaco editor, inline severity annotations, side-by-side fix diffs
-- [ ] Day 11-12: Dashboard (score, issues by category, complexity chart), PostgreSQL history
+- [x] Day 11: History in the browser (IndexedDB): save every analysis, History tab (open, delete, clear)
+- [ ] Day 12: Dashboard (score, issues by category, complexity chart, score trend)
 - [ ] Day 13-14: Docker, deploy, architecture diagram, demo video
