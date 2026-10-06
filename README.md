@@ -110,6 +110,12 @@ for the backend settings (LLM provider and CORS origins).
 - **Out-of-date results.** Line numbers only match the code that was analyzed. After any edit or
   applied fix, a banner says so, and the other fixes stay disabled until you re-analyze. A fix is
   never applied to the wrong lines.
+- **Dashboard tab.**
+  - Stat tiles: the score with a meter, counted issues by severity, findings the AI dismissed, and the number of functions.
+  - Issues by category.
+  - Function complexity against the threshold of 10. Functions above it are in the accent color and the rest in gray; click a bar to see the function.
+  - This browser's recent scores, from History, with hover tooltips and a table view.
+  - It's plain HTML/CSS and one SVG, with no chart library: there are at most about 20 data points, so a library would only add bundle size. The chart colors were checked for color-blind separation and contrast in both themes.
 - **History tab.** Every analysis is saved in the browser. **Open** brings back the code and its
   results exactly as they were, with no new request and no LLM quota used. **Delete** and
   **Clear history** remove them.
@@ -146,13 +152,20 @@ user accounts and a server database.
 |--------|------------|---------------------------------------|----------------------------------------------|
 | GET    | `/health`  | none                                  | `{"status": "ok"}`                           |
 | GET    | `/languages` | none                                | `[{id, label, extensions}]`                  |
-| POST   | `/analyze` | `{"code": "...", "language": "go"}`   | `{issues, score, summary, tool_errors, ai_review}` |
+| POST   | `/analyze` | `{"code": "...", "language": "go"}`   | `{issues, score, summary, tool_errors, ai_review, functions}` |
 
 `language` is optional. If it's missing, the language comes from `filename`'s extension, and
 with neither it defaults to Python. An unknown extension is a 422 error, not a guess.
 
 A language's analyzers run in parallel. If one crashes or times out (20 s), its error goes in
 `tool_errors` and the other tools' results are still returned.
+
+`functions` lists **every** function's cyclomatic complexity, `[{name, line, end_line, complexity}]`,
+for the dashboard chart. It comes from Radon for Python and Lizard for other languages, and is empty
+for SQL, YAML, JSON, CSS and HTML. Only functions above 10 also become issues. Issues, the chart and
+the AI chunker share one parser, so the numbers always match. Getting it costs one extra Radon or
+Lizard run, in parallel with the other tools. That was simpler than changing the
+`run() -> list[Issue]` contract all analyzers share. If it fails, the list is just empty.
 
 ## AI review
 
@@ -306,5 +319,5 @@ report (for example `eval` from both Pylint and Bandit) are merged into one.
 - [x] Day 7: Buffer: Semgrep timeout + retry, `gemini-3.5-flash-lite` as the default model
 - [x] Day 8-10: Monaco editor, inline severity annotations, side-by-side fix diffs
 - [x] Day 11: History in the browser (IndexedDB): save every analysis, History tab (open, delete, clear)
-- [ ] Day 12: Dashboard (score, issues by category, complexity chart, score trend)
+- [x] Day 12: Dashboard (score, issues by category, complexity chart, score trend)
 - [ ] Day 13-14: Docker, deploy, architecture diagram, demo video
