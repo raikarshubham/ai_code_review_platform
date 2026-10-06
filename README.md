@@ -76,6 +76,11 @@ Those engine flags are internal, so the version is pinned exactly. The backend f
 `.venv-semgrep` automatically (or set `SEMGREP_CORE` to its path). If it's missing, Semgrep
 languages report it in `tool_errors` and the Semgrep rule tests are skipped.
 
+On Windows, `semgrep-core` has very rarely hung until killed, then finished at once when re-run.
+We couldn't reproduce it in 270 runs. So Semgrep gets a 10 s timeout and one retry, where a
+normal run takes about 0.5 s. The worst case is still 20 s, and a one-off hang no longer loses
+every Semgrep finding.
+
 ### Frontend
 
 ```bash
@@ -191,8 +196,9 @@ likely used up)", and the static results still come back. Switching `LLM_PROVIDE
 in `.env` gives you a separate quota.
 
 Each Gemini model has its own capacity and quota. When `gemini-3.5-flash` was overloaded
-(HTTP 503 on every attempt), `LLM_MODEL=gemini-3.5-flash-lite` worked, at about 3 s per
-review instead of 7-45 s.
+(HTTP 503 on every attempt), `gemini-3.5-flash-lite` worked, at about 3 s per review instead of
+7-45 s. It is now the default Gemini model, and the prompt evaluation below was measured on it.
+Set `LLM_MODEL` to use another one.
 
 ### Prompt evaluation
 
@@ -236,8 +242,10 @@ What the numbers showed:
   that, so a `fix-must-not` rule was added and the earlier runs were rescored. Checks also need
   testing: `fix-must-not: sha256` wrongly flagged v3's correct `pbkdf2_hmac('sha256', ...)`, so it
   was narrowed to `hashlib.sha256(`.
-- Still open: v3 sometimes puts `import` lines inside a function, even though the prompt says not
-  to.
+- Known limitation, kept on purpose: v3 sometimes puts `import` lines inside a function, even
+  though the prompt says not to. We don't strip them in post-processing. An inline import is
+  valid code, and without it "Apply fix" would produce code that crashes with `NameError` when
+  the module isn't already imported. Working code wins over style here.
 - These are single runs on 14 snippets, so a difference of one is within noise. The held-out set
   (4/4 for v3) is the check that v3 isn't just fitted to the tuning snippets.
 
@@ -266,7 +274,7 @@ report (for example `eval` from both Pylint and Bandit) are merged into one.
 - [x] Day 4: LLM client + reviewer prompt + validation
 - [x] Day 5: Retries, rate limits, chunking, fallback; `scripts/check_llm.py`
 - [x] Day 6: Prompt tuning on 14 annotated snippets (prompt v3, see [Prompt evaluation](#prompt-evaluation))
-- [ ] Day 7: Buffer
+- [x] Day 7: Buffer: Semgrep timeout + retry, `gemini-3.5-flash-lite` as the default model
 - [x] Day 8-10: Monaco editor, inline severity annotations, side-by-side fix diffs
 - [ ] Day 11-12: Dashboard (score, issues by category, complexity chart), PostgreSQL history
 - [ ] Day 13-14: Docker, deploy, architecture diagram, demo video
