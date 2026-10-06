@@ -1,6 +1,8 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { analyzeCode, checkHealth, getLanguages } from './api.js'
 import { canApply } from './editor/fixes.js'
+import HistoryList from './history/HistoryList.jsx'
+import { openHistory, toRecord } from './history/store.js'
 import { SAMPLES } from './samples.js'
 import './App.css'
 
@@ -146,6 +148,10 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [reveal, setReveal] = useState(null) // { line, endLine, seq } for the editor to jump to
   const [diffIssue, setDiffIssue] = useState(null) // issue whose fix is shown as a diff, or null
+  const [tab, setTab] = useState('results') // 'results' | 'history'
+  // undefined while opening, then the store, or null if this browser has no usable IndexedDB.
+  const [history, setHistory] = useState(undefined)
+  const [historyItems, setHistoryItems] = useState([])
 
   // Line numbers in `result` only match the code that was analyzed. After an edit they may point
   // at the wrong lines, so say so instead of silently showing misplaced markers.
@@ -169,6 +175,45 @@ export default function App() {
       .catch(() => {}) // keep the fallback list; the health badge already reports the outage
   }, [])
 
+  useEffect(() => {
+    openHistory().then(async (store) => {
+      setHistory(store)
+      if (store) setHistoryItems(await store.list())
+    })
+  }, [])
+
+  // History is a bonus: if storage fails, warn in the console and carry on, never block the user.
+  function updateHistory(action) {
+    if (!history) return
+    action(history)
+      .then(() => history.list())
+      .then(setHistoryItems)
+      .catch((err) => console.warn('history update failed:', err))
+  }
+
+  async function openFromHistory(id) {
+    const saved = await history.get(id).catch(() => undefined)
+    if (!saved) {
+      updateHistory(async () => {}) // it was deleted (e.g. in another tab): refresh the list
+      return
+    }
+    // Restore exactly what was seen: no new request, no LLM quota. analyzedCode = code, so the
+    // saved results count as up to date and their fixes can be applied.
+    setLanguage(saved.language)
+    setCode(saved.code)
+    setResult(saved.result)
+    setAnalyzedCode(saved.code)
+    setError(null)
+    setDiffIssue(null)
+    setTab('results')
+  }
+
+  function clearHistory() {
+    if (window.confirm('Delete all saved analyses from this browser?')) {
+      updateHistory((store) => store.clear())
+    }
+  }
+
   function handleLanguageChange(event) {
     const next = event.target.value
     // Swap in the new starter snippet only if the user hasn't edited the current one.
@@ -185,10 +230,13 @@ export default function App() {
     setLoading(true)
     setError(null)
     setDiffIssue(null)
+    setTab('results')
     try {
       const submitted = code
-      setResult(await analyzeCode(submitted, language))
+      const analysis = await analyzeCode(submitted, language)
+      setResult(analysis)
       setAnalyzedCode(submitted)
+      updateHistory((store) => store.save(toRecord(submitted, language, analysis)))
     } catch (err) {
       setResult(null)
       setError(err.message)
@@ -257,13 +305,31 @@ export default function App() {
         </section>
 
         <section className="results">
-          {error && <p className="error">{error}</p>}
-          {!result && !error && (
+          <div className="tabs" role="tablist">
+            <button role="tab" aria-selected={tab === 'results'} onClick={() => setTab('results')}>
+              Results
+            </button>
+            <button role="tab" aria-selected={tab === 'history'} onClick={() => setTab('history')}>
+              History{historyItems.length > 0 && ` (${historyItems.length})`}
+            </button>
+          </div>
+          {tab === 'history' && history !== undefined && (
+            <HistoryList
+              available={history !== null}
+              items={historyItems}
+              labels={Object.fromEntries(languages.map((item) => [item.id, item.label]))}
+              onOpen={openFromHistory}
+              onDelete={(id) => updateHistory((store) => store.remove(id))}
+              onClear={clearHistory}
+            />
+          )}
+          {tab === 'results' && error && <p className="error">{error}</p>}
+          {tab === 'results' && !result && !error && (
             <p className="muted placeholder">
               Pick a language, paste or edit code, and press Analyze. Issues will appear here.
             </p>
           )}
-          {result && (
+          {tab === 'results' && result && (
             <>
               <h2>
                 Score: <span className="score">{result.score}</span>/100
