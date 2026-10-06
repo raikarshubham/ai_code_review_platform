@@ -1,5 +1,7 @@
 // All backend calls live here so components don't hardcode URLs.
 // VITE_API_URL is set per environment (e.g. the Render URL on Vercel); local dev uses the default.
+import { getClientId } from './clientId.js'
+
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
 export async function checkHealth() {
@@ -25,7 +27,8 @@ export async function analyzeCode(code, language) {
   try {
     response = await fetch(`${API_URL}/analyze`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      // The client id lets the backend save this analysis to this browser's history.
+      headers: { 'Content-Type': 'application/json', 'X-Client-Id': getClientId() },
       body: JSON.stringify({ code, language }),
       signal: controller.signal,
     })
@@ -43,3 +46,24 @@ export async function analyzeCode(code, language) {
   }
   return response.json()
 }
+
+// --- History (this browser's past analyses) ---------------------------------------------------
+// 503 means the backend runs without a database; callers can hide the history UI then.
+
+async function historyRequest(path, options = {}) {
+  const response = await fetch(`${API_URL}/history${path}`, {
+    ...options,
+    headers: { 'X-Client-Id': getClientId() },
+  })
+  if (!response.ok) {
+    const body = await response.json().catch(() => null)
+    const error = new Error(body?.detail || `History request failed (${response.status})`)
+    error.status = response.status
+    throw error
+  }
+  return response.status === 204 ? null : response.json()
+}
+
+export const getHistory = (limit = 20) => historyRequest(`?limit=${limit}`)
+export const getHistoryItem = (id) => historyRequest(`/${id}`)
+export const deleteHistoryItem = (id) => historyRequest(`/${id}`, { method: 'DELETE' })
