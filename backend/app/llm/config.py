@@ -16,7 +16,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 # provider -> (base URL, default model). Ollama has no sensible default model: it depends on
 # what you've pulled locally, so LLM_MODEL is required for it.
 PROVIDERS = {
-    "gemini": ("https://generativelanguage.googleapis.com/v1beta/openai", "gemini-3.5-flash"),
+    "gemini": ("https://generativelanguage.googleapis.com/v1beta/openai", "gemini-3.5-flash-lite"),
     "groq": ("https://api.groq.com/openai/v1", "llama-3.3-70b-versatile"),
     "ollama": ("http://localhost:11434/v1", None),
 }
