@@ -8,7 +8,7 @@ import pytest
 import yaml
 
 from app.analyzers import semgrep_runner
-from app.analyzers.runner import AnalyzerError
+from app.analyzers.runner import AnalyzerError, AnalyzerTimeout
 from app.languages import SPECS, Language, detect_language
 from app.pipeline import analyze
 from app.schemas import Category, Severity
@@ -193,6 +193,51 @@ def test_engine_error_raises():
 def test_parse_garbage_raises(bad_output):
     with pytest.raises(AnalyzerError):
         semgrep_runner.parse(bad_output)
+
+
+# --- Timeout retry (fake run_tool, no Semgrep needed) --------------------------------------
+
+
+@pytest.fixture
+def fake_semgrep(monkeypatch):
+    """Replace run_tool with a script of outcomes: an exception to raise or output to return."""
+    outcomes, calls = [], []
+
+    def fake_run_tool(*args, **kwargs):
+        calls.append(kwargs["timeout"])
+        outcome = outcomes.pop(0)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
+
+    monkeypatch.setattr(semgrep_runner, "find_semgrep_core", lambda: "semgrep-core")
+    monkeypatch.setattr(semgrep_runner, "run_tool", fake_run_tool)
+    return outcomes, calls
+
+
+def test_timeout_is_retried_once(fake_semgrep):
+    outcomes, calls = fake_semgrep
+    good = core_output([core_result("js-eval", 1, {"category": "security", "severity": "high"})])
+    outcomes += [AnalyzerTimeout("semgrep timed out after 10s"), good]
+    (issue,) = semgrep_runner.run("eval(x)\n", SPECS[Language.JAVASCRIPT])
+    assert issue.rule_id == "js-eval"
+    assert calls == [semgrep_runner.SEMGREP_TIMEOUT_SECONDS] * 2
+
+
+def test_second_timeout_gives_up(fake_semgrep):
+    outcomes, calls = fake_semgrep
+    outcomes += [AnalyzerTimeout("timed out"), AnalyzerTimeout("timed out")]
+    with pytest.raises(AnalyzerError, match="timed out"):
+        semgrep_runner.run("eval(x)\n", SPECS[Language.JAVASCRIPT])
+    assert len(calls) == 2
+
+
+def test_other_errors_are_not_retried(fake_semgrep):
+    outcomes, calls = fake_semgrep
+    outcomes += [AnalyzerError("semgrep produced no output (exit 2)")]
+    with pytest.raises(AnalyzerError, match="no output"):
+        semgrep_runner.run("eval(x)\n", SPECS[Language.JAVASCRIPT])
+    assert len(calls) == 1
 
 
 # --- Real engine through the pipeline ------------------------------------------------------

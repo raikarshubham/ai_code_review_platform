@@ -16,7 +16,7 @@ import os
 import shutil
 from pathlib import Path
 
-from app.analyzers.runner import AnalyzerError, run_tool
+from app.analyzers.runner import AnalyzerError, AnalyzerTimeout, run_tool
 from app.languages import Language, LanguageSpec
 from app.schemas import Category, Issue, Severity
 
@@ -46,6 +46,12 @@ SEMGREP_LANG = {
 
 # Languages that share a rule file (the rules list both languages).
 RULE_FILE = {Language.TYPESCRIPT: "javascript", Language.CPP: "c"}
+
+# A normal semgrep-core run takes ~0.5 s, but on Windows it has (rarely, not reproducibly) hung
+# until killed, and a re-run then finished at once. So: a short timeout and one retry. The
+# worst case is 2 x 10 s, the same 20 s as other tools get, but a one-off hang no longer costs
+# the user every Semgrep finding.
+SEMGREP_TIMEOUT_SECONDS = 10
 
 # Fallback when a rule has no metadata.severity (all of ours do; this is defensive).
 DEFAULT_SEVERITY = {"ERROR": Severity.HIGH, "WARNING": Severity.MEDIUM, "INFO": Severity.LOW}
@@ -125,4 +131,9 @@ def run(code: str, spec: LanguageSpec) -> list[Issue]:
     if core is None:
         raise AnalyzerError("semgrep-core not found; install requirements-semgrep.txt into backend/.venv-semgrep")
     args = ["-rules", str(rules_path(spec.language)), "-lang", SEMGREP_LANG[spec.language], "-json"]
-    return parse(run_tool(NAME, args, code, spec.temp_ext, executable=[core]))
+    try:
+        output = run_tool(NAME, args, code, spec.temp_ext, timeout=SEMGREP_TIMEOUT_SECONDS, executable=[core])
+    except AnalyzerTimeout:
+        # Only a timeout is retried: a crash or bad output would just fail the same way again.
+        output = run_tool(NAME, args, code, spec.temp_ext, timeout=SEMGREP_TIMEOUT_SECONDS, executable=[core])
+    return parse(output)

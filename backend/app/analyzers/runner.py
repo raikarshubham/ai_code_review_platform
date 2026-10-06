@@ -21,6 +21,11 @@ class AnalyzerError(Exception):
     """The tool crashed, timed out, or produced output we couldn't parse."""
 
 
+class AnalyzerTimeout(AnalyzerError):
+    """The tool didn't finish in time. A subclass, so `except AnalyzerError` still catches it,
+    but a caller that knows a tool hangs now and then can retry just this case."""
+
+
 def run_tool(
     module: str,
     args: list[str],
@@ -61,7 +66,7 @@ def run_tool(
                 timeout=timeout,
             )
         except subprocess.TimeoutExpired as exc:
-            raise AnalyzerError(f"{module} timed out after {timeout}s") from exc
+            raise AnalyzerTimeout(f"{module} timed out after {timeout}s") from exc
         except OSError as exc:
             raise AnalyzerError(f"could not start {module}: {exc}") from exc
 

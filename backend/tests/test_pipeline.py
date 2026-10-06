@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from app.analyzers.runner import AnalyzerError, AnalyzerTimeout, run_tool
 from app.pipeline import analyze
 
 BUGGY_CODE = (Path(__file__).resolve().parent.parent / "samples" / "buggy.py").read_text(
@@ -96,3 +97,14 @@ def test_tool_timeout_is_reported_not_fatal(monkeypatch):
     assert "timed out" in result.tool_errors["pylint"]
     assert not any(issue.tool == "pylint" for issue in result.issues)
     assert any(issue.tool == "bandit" for issue in result.issues)
+
+
+def test_run_tool_timeout_is_its_own_error_type(monkeypatch):
+    # AnalyzerTimeout lets a caller retry only hangs; it's still an AnalyzerError for the rest.
+    def fake_run(command, **kwargs):
+        raise subprocess.TimeoutExpired(command, kwargs["timeout"])
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    with pytest.raises(AnalyzerTimeout, match="timed out after 3s") as caught:
+        run_tool("pylint", [], "x = 1\n", timeout=3)
+    assert isinstance(caught.value, AnalyzerError)
