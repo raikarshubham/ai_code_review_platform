@@ -1,0 +1,715 @@
+{
+  "meta": {
+    "date": "2026-10-06",
+    "provider": "gemini",
+    "model": "gemini-3.5-flash-lite",
+    "label": "lite-v3",
+    "set": "tuning",
+    "prompt": "f96bf7b1"
+  },
+  "totals": {
+    "snippets": 10,
+    "recall": 1.0,
+    "found": 9,
+    "expected": 9,
+    "extras": 0,
+    "fp_dismissed": "1/1",
+    "wrong_dismissals": 0,
+    "fix_violations": 4,
+    "clean_violations": 0,
+    "errors": 0,
+    "avg_seconds": 3.4
+  },
+  "scores": [
+    {
+      "name": "t01_unbound_on_error",
+      "split": "tuning",
+      "expected": 1,
+      "found": 1,
+      "missed": [],
+      "extras": [],
+      "fp_total": 0,
+      "fp_correct": 0,
+      "wrong_dismissals": [],
+      "fix_violations": [],
+      "clean_violation": false,
+      "seconds": 3.2,
+      "error": null
+    },
+    {
+      "name": "t02_off_by_one",
+      "split": "tuning",
+      "expected": 1,
+      "found": 1,
+      "missed": [],
+      "extras": [],
+      "fp_total": 0,
+      "fp_correct": 0,
+      "wrong_dismissals": [],
+      "fix_violations": [],
+      "clean_violation": false,
+      "seconds": 3.6,
+      "error": null
+    },
+    {
+      "name": "t03_none_and_planted_fp",
+      "split": "tuning",
+      "expected": 1,
+      "found": 1,
+      "missed": [],
+      "extras": [],
+      "fp_total": 1,
+      "fp_correct": 1,
+      "wrong_dismissals": [],
+      "fix_violations": [],
+      "clean_violation": false,
+      "seconds": 3.8,
+      "error": null
+    },
+    {
+      "name": "t04_leak_and_weak_hash",
+      "split": "tuning",
+      "expected": 1,
+      "found": 1,
+      "missed": [],
+      "extras": [],
+      "fp_total": 0,
+      "fp_correct": 0,
+      "wrong_dismissals": [],
+      "fix_violations": [
+        "L7 fix contains 'sha256'",
+        "L7 fix contains 'sha256'",
+        "L6 fix imports inside a function",
+        "L7 fix imports inside a function"
+      ],
+      "clean_violation": false,
+      "seconds": 3.9,
+      "error": null
+    },
+    {
+      "name": "t05_shared_class_state",
+      "split": "tuning",
+      "expected": 1,
+      "found": 1,
+      "missed": [],
+      "extras": [],
+      "fp_total": 0,
+      "fp_correct": 0,
+      "wrong_dismissals": [],
+      "fix_violations": [],
+      "clean_violation": false,
+      "seconds": 2.7,
+      "error": null
+    },
+    {
+      "name": "t06_failure_ignored",
+      "split": "tuning",
+      "expected": 1,
+      "found": 1,
+      "missed": [],
+      "extras": [],
+      "fp_total": 0,
+      "fp_correct": 0,
+      "wrong_dismissals": [],
+      "fix_violations": [],
+      "clean_violation": false,
+      "seconds": 5.8,
+      "error": null
+    },
+    {
+      "name": "t07_division_by_zero",
+      "split": "tuning",
+      "expected": 1,
+      "found": 1,
+      "missed": [],
+      "extras": [],
+      "fp_total": 0,
+      "fp_correct": 0,
+      "wrong_dismissals": [],
+      "fix_violations": [],
+      "clean_violation": false,
+      "seconds": 2.9,
+      "error": null
+    },
+    {
+      "name": "t08_ignored_error",
+      "split": "tuning",
+      "expected": 1,
+      "found": 1,
+      "missed": [],
+      "extras": [],
+      "fp_total": 0,
+      "fp_correct": 0,
+      "wrong_dismissals": [],
+      "fix_violations": [],
+      "clean_violation": false,
+      "seconds": 3.8,
+      "error": null
+    },
+    {
+      "name": "t09_async_foreach",
+      "split": "tuning",
+      "expected": 1,
+      "found": 1,
+      "missed": [],
+      "extras": [],
+      "fp_total": 0,
+      "fp_correct": 0,
+      "wrong_dismissals": [],
+      "fix_violations": [],
+      "clean_violation": false,
+      "seconds": 1.8,
+      "error": null
+    },
+    {
+      "name": "t10_clean",
+      "split": "tuning",
+      "expected": 0,
+      "found": 0,
+      "missed": [],
+      "extras": [],
+      "fp_total": 0,
+      "fp_correct": 0,
+      "wrong_dismissals": [],
+      "fix_violations": [],
+      "clean_violation": false,
+      "seconds": 2.6,
+      "error": null
+    }
+  ],
+  "responses": [
+    {
+      "name": "t01_unbound_on_error",
+      "seconds": 3.2,
+      "response": {
+        "language": "python",
+        "issues": [
+          {
+            "tool": "ai",
+            "rule_id": "ai-unbound-variable",
+            "category": "bug",
+            "severity": "high",
+            "line": 4,
+            "end_line": 10,
+            "message": "settings variable unbound when FileNotFoundError occurs",
+            "symbol": "unbound-variable",
+            "ai": {
+              "verdict": "confirmed",
+              "explanation": "If the file does not exist, FileNotFoundError is caught, but settings is never defined, causing an UnboundLocalError when it is returned on line 10.",
+              "fix": "Define a default settings dictionary before the try-except block, or return defaults inside the except block.",
+              "fixed_code": "def load_settings(path):\n    settings = {}\n    try:\n        with open(path, encoding=\"utf-8\") as handle:\n            settings = json.load(handle)\n    except FileNotFoundError:\n        print(\"no settings file, using defaults\")\n    return settings",
+              "fix_start_line": 4,
+              "fix_end_line": 10
+            }
+          }
+        ],
+        "score": 90,
+        "summary": {
+          "critical": 0,
+          "high": 1,
+          "medium": 0,
+          "low": 0,
+          "info": 0
+        },
+        "tool_errors": {},
+        "ai_review": {
+          "enabled": true,
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "confirmed": 0,
+          "false_positives": 0,
+          "added": 1,
+          "overridden": 0,
+          "chunks": 1,
+          "truncated": false,
+          "error": null
+        }
+      }
+    },
+    {
+      "name": "t02_off_by_one",
+      "seconds": 3.6,
+      "response": {
+        "language": "python",
+        "issues": [
+          {
+            "tool": "ai",
+            "rule_id": "ai-off-by-one-range",
+            "category": "bug",
+            "severity": "medium",
+            "line": 4,
+            "end_line": 4,
+            "message": "Moving average misses the last window of values",
+            "symbol": "off-by-one-range",
+            "ai": {
+              "verdict": "confirmed",
+              "explanation": "The range `range(len(values) - window)` stops one element too early, omitting the final window of consecutive values where `start == len(values) - window`. It should be `range(len(values) - window + 1)`.",
+              "fix": "Change the range upper bound to include the final window by adding 1.",
+              "fixed_code": "    for start in range(len(values) - window + 1):",
+              "fix_start_line": 4,
+              "fix_end_line": 4
+            }
+          },
+          {
+            "tool": "ai",
+            "rule_id": "ai-zero-division-error",
+            "category": "bug",
+            "severity": "medium",
+            "line": 6,
+            "end_line": 6,
+            "message": "ZeroDivisionError when window size is zero",
+            "symbol": "zero-division-error",
+            "ai": {
+              "verdict": "confirmed",
+              "explanation": "If `window` is passed as 0, dividing by `window` on line 6 will raise a `ZeroDivisionError`. We should handle or validate against a zero or negative window size.",
+              "fix": "Check if window is less than or equal to 0 and handle it appropriately.",
+              "fixed_code": "    if window <= 0:\n        return []",
+              "fix_start_line": 3,
+              "fix_end_line": 3
+            }
+          }
+        ],
+        "score": 92,
+        "summary": {
+          "critical": 0,
+          "high": 0,
+          "medium": 2,
+          "low": 0,
+          "info": 0
+        },
+        "tool_errors": {},
+        "ai_review": {
+          "enabled": true,
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "confirmed": 0,
+          "false_positives": 0,
+          "added": 2,
+          "overridden": 0,
+          "chunks": 1,
+          "truncated": false,
+          "error": null
+        }
+      }
+    },
+    {
+      "name": "t03_none_and_planted_fp",
+      "seconds": 3.8,
+      "response": {
+        "language": "python",
+        "issues": [
+          {
+            "tool": "ai",
+            "rule_id": "ai-unhandled-none-type",
+            "category": "bug",
+            "severity": "high",
+            "line": 10,
+            "end_line": 12,
+            "message": "TypeError when user is not found",
+            "symbol": "unhandled-none-type",
+            "ai": {
+              "verdict": "confirmed",
+              "explanation": "If find_user returns None (when the user is not in users), greeting attempts to subscript `user[\"display_name\"]`, raising a TypeError: 'NoneType' object is not subscriptable.",
+              "fix": "Check if the user exists before accessing display_name, and handle the missing user case appropriately.",
+              "fixed_code": "def greeting(users, name):\n    user = find_user(users, name)\n    if not user:\n        return \"Hello, Guest\"\n    return \"Hello, \" + user[\"display_name\"]",
+              "fix_start_line": 10,
+              "fix_end_line": 12
+            }
+          },
+          {
+            "tool": "pylint",
+            "rule_id": "R1710",
+            "category": "smell",
+            "severity": "low",
+            "line": 4,
+            "end_line": 4,
+            "message": "Either all return statements in a function should return an expression, or none of them should.",
+            "symbol": "inconsistent-return-statements",
+            "ai": {
+              "verdict": "confirmed",
+              "explanation": "The function find_user returns a user dictionary when found, but implicitly returns None if the loop completes without finding a match, which triggers inconsistent-return-statements.",
+              "fix": "Return None explicitly at the end of the function.",
+              "fixed_code": "def find_user(users, name):\n    for user in users:\n        if user[\"name\"] == name:\n            return user\n    return None",
+              "fix_start_line": 4,
+              "fix_end_line": 7
+            }
+          },
+          {
+            "tool": "bandit",
+            "rule_id": "B105",
+            "category": "security",
+            "severity": "high",
+            "line": 1,
+            "end_line": 1,
+            "message": "Possible hardcoded password: 'X-Auth-Token'",
+            "symbol": "hardcoded_password_string",
+            "ai": {
+              "verdict": "false_positive",
+              "explanation": "TOKEN_HEADER is an HTTP header name ('X-Auth-Token'), not a hardcoded password or secret string.",
+              "fix": null,
+              "fixed_code": null,
+              "fix_start_line": null,
+              "fix_end_line": null
+            }
+          }
+        ],
+        "score": 89,
+        "summary": {
+          "critical": 0,
+          "high": 1,
+          "medium": 0,
+          "low": 1,
+          "info": 0
+        },
+        "tool_errors": {},
+        "ai_review": {
+          "enabled": true,
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "confirmed": 1,
+          "false_positives": 1,
+          "added": 1,
+          "overridden": 0,
+          "chunks": 1,
+          "truncated": false,
+          "error": null
+        }
+      }
+    },
+    {
+      "name": "t04_leak_and_weak_hash",
+      "seconds": 3.9,
+      "response": {
+        "language": "python",
+        "issues": [
+          {
+            "tool": "ai",
+            "rule_id": "ai-unclosed-sqlite-connection",
+            "category": "bug",
+            "severity": "medium",
+            "line": 6,
+            "end_line": 9,
+            "message": "SQLite connection is never closed",
+            "symbol": "unclosed-sqlite-connection",
+            "ai": {
+              "verdict": "confirmed",
+              "explanation": "The sqlite3.connect() connection is opened but never closed, leading to a resource leak if save_user is called repeatedly or if an exception occurs before commit.",
+              "fix": "Use a try/finally block or contextlib.closing to ensure the connection is closed.",
+              "fixed_code": "def save_user(db_path, username, password):\n    import contextlib\n    with contextlib.closing(sqlite3.connect(db_path)) as conn:\n        import os\n        salt = os.urandom(16)\n        digest = hashlib.pbkdf2_hmac('sha256', password.encode(), salt, 100000).hex()\n        conn.execute(\"INSERT INTO users (name, hash, salt) VALUES (?, ?, ?)\", (username, digest, salt))\n        conn.commit()",
+              "fix_start_line": 5,
+              "fix_end_line": 9
+            }
+          },
+          {
+            "tool": "bandit",
+            "rule_id": "B324",
+            "category": "security",
+            "severity": "medium",
+            "line": 7,
+            "end_line": 7,
+            "message": "Use of weak MD5 hash for security. Consider usedforsecurity=False",
+            "symbol": "hashlib",
+            "ai": {
+              "verdict": "confirmed",
+              "explanation": "MD5 is cryptographically broken and should not be used for hashing passwords. Instead, use a secure password hashing algorithm like bcrypt, argon2, or PBKDF2.",
+              "fix": "Replace hashlib.md5 with hashlib.pbkdf2_hmac or a dedicated password hashing library like bcrypt.",
+              "fixed_code": "    import os\n    salt = os.urandom(16)\n    digest = hashlib.pbkdf2_hmac('sha256', password.encode(), salt, 100000).hex()\n    conn.execute(\"INSERT INTO users (name, hash, salt) VALUES (?, ?, ?)\", (username, digest, salt))",
+              "fix_start_line": 7,
+              "fix_end_line": 8
+            }
+          }
+        ],
+        "score": 92,
+        "summary": {
+          "critical": 0,
+          "high": 0,
+          "medium": 2,
+          "low": 0,
+          "info": 0
+        },
+        "tool_errors": {},
+        "ai_review": {
+          "enabled": true,
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "confirmed": 1,
+          "false_positives": 0,
+          "added": 1,
+          "overridden": 0,
+          "chunks": 1,
+          "truncated": false,
+          "error": null
+        }
+      }
+    },
+    {
+      "name": "t05_shared_class_state",
+      "seconds": 2.7,
+      "response": {
+        "language": "python",
+        "issues": [
+          {
+            "tool": "ai",
+            "rule_id": "ai-mutable-class-attribute",
+            "category": "bug",
+            "severity": "high",
+            "line": 1,
+            "end_line": 2,
+            "message": "Shared mutable list as class attribute",
+            "symbol": "mutable-class-attribute",
+            "ai": {
+              "verdict": "confirmed",
+              "explanation": "Defining items = [] at the class level shares the list across all instances of ShoppingCart, meaning items added to one cart will appear in all other carts.",
+              "fix": "Initialize the items list inside the __init__ method as an instance attribute.",
+              "fixed_code": "class ShoppingCart:\n    def __init__(self, owner):\n        self.owner = owner\n        self.items = []",
+              "fix_start_line": 1,
+              "fix_end_line": 5
+            }
+          }
+        ],
+        "score": 90,
+        "summary": {
+          "critical": 0,
+          "high": 1,
+          "medium": 0,
+          "low": 0,
+          "info": 0
+        },
+        "tool_errors": {},
+        "ai_review": {
+          "enabled": true,
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "confirmed": 0,
+          "false_positives": 0,
+          "added": 1,
+          "overridden": 0,
+          "chunks": 1,
+          "truncated": false,
+          "error": null
+        }
+      }
+    },
+    {
+      "name": "t06_failure_ignored",
+      "seconds": 5.8,
+      "response": {
+        "language": "python",
+        "issues": [
+          {
+            "tool": "ai",
+            "rule_id": "ai-order-status-incorrect",
+            "category": "bug",
+            "severity": "high",
+            "line": 11,
+            "end_line": 12,
+            "message": "Order marked as paid when payment fails",
+            "symbol": "order-status-incorrect",
+            "ai": {
+              "verdict": "confirmed",
+              "explanation": "When a ConnectionError occurs, the exception is caught and logged, but execution continues to line 11 where the order status is unconditionally set to \"paid\", returning the order as successfully paid even though the charge failed.",
+              "fix": "Re-raise the exception or handle the failure properly so the order status is not set to paid when the charge fails.",
+              "fixed_code": "    except ConnectionError:\n        log.warning(\"payment service unreachable\")\n        raise\n    order.status = \"paid\"\n    return order",
+              "fix_start_line": 9,
+              "fix_end_line": 12
+            }
+          }
+        ],
+        "score": 90,
+        "summary": {
+          "critical": 0,
+          "high": 1,
+          "medium": 0,
+          "low": 0,
+          "info": 0
+        },
+        "tool_errors": {},
+        "ai_review": {
+          "enabled": true,
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "confirmed": 0,
+          "false_positives": 0,
+          "added": 1,
+          "overridden": 0,
+          "chunks": 1,
+          "truncated": false,
+          "error": null
+        }
+      }
+    },
+    {
+      "name": "t07_division_by_zero",
+      "seconds": 2.9,
+      "response": {
+        "language": "python",
+        "issues": [
+          {
+            "tool": "ai",
+            "rule_id": "ai-zero-division-error",
+            "category": "bug",
+            "severity": "medium",
+            "line": 1,
+            "end_line": 3,
+            "message": "ZeroDivisionError when scores list is empty",
+            "symbol": "zero-division-error",
+            "ai": {
+              "verdict": "confirmed",
+              "explanation": "If scores is None or empty, len(scores) is 0, causing a ZeroDivisionError during division.",
+              "fix": "Return 0 or 0.0 if the scores list is empty.",
+              "fixed_code": "def average_score(scores=None):\n    scores = scores or []\n    return sum(scores) / len(scores) if scores else 0.0",
+              "fix_start_line": 1,
+              "fix_end_line": 3
+            }
+          }
+        ],
+        "score": 96,
+        "summary": {
+          "critical": 0,
+          "high": 0,
+          "medium": 1,
+          "low": 0,
+          "info": 0
+        },
+        "tool_errors": {},
+        "ai_review": {
+          "enabled": true,
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "confirmed": 0,
+          "false_positives": 0,
+          "added": 1,
+          "overridden": 0,
+          "chunks": 1,
+          "truncated": false,
+          "error": null
+        }
+      }
+    },
+    {
+      "name": "t08_ignored_error",
+      "seconds": 3.8,
+      "response": {
+        "language": "go",
+        "issues": [
+          {
+            "tool": "ai",
+            "rule_id": "ai-ignore-json-unmarshal-error",
+            "category": "bug",
+            "severity": "medium",
+            "line": 19,
+            "end_line": 19,
+            "message": "Ignored JSON unmarshal error",
+            "symbol": "ignore-json-unmarshal-error",
+            "ai": {
+              "verdict": "confirmed",
+              "explanation": "The error returned by json.Unmarshal is ignored. If the configuration file contains invalid JSON, the function will silently return a partially populated or zero-valued Config struct instead of failing or falling back.",
+              "fix": "Check the error returned by json.Unmarshal and handle it appropriately, such as returning the default configuration or an error.",
+              "fixed_code": "\tif err := json.Unmarshal(data, &cfg); err != nil {\n\t\treturn Config{Port: 8080, Host: \"localhost\"}\n\t}",
+              "fix_start_line": 19,
+              "fix_end_line": 19
+            }
+          }
+        ],
+        "score": 96,
+        "summary": {
+          "critical": 0,
+          "high": 0,
+          "medium": 1,
+          "low": 0,
+          "info": 0
+        },
+        "tool_errors": {},
+        "ai_review": {
+          "enabled": true,
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "confirmed": 0,
+          "false_positives": 0,
+          "added": 1,
+          "overridden": 0,
+          "chunks": 1,
+          "truncated": false,
+          "error": null
+        }
+      }
+    },
+    {
+      "name": "t09_async_foreach",
+      "seconds": 1.8,
+      "response": {
+        "language": "javascript",
+        "issues": [
+          {
+            "tool": "ai",
+            "rule_id": "ai-async-foreach",
+            "category": "bug",
+            "severity": "high",
+            "line": 2,
+            "end_line": 4,
+            "message": "forEach does not await asynchronous callbacks",
+            "symbol": "async-foreach",
+            "ai": {
+              "verdict": "confirmed",
+              "explanation": "Array.prototype.forEach does not wait for promises returned by async callback functions. This means saveAll will return the success message before any items are actually saved, and errors thrown inside db.save will become unhandled rejections.",
+              "fix": "Use a for...of loop with await instead of forEach to properly sequence asynchronous operations.",
+              "fixed_code": "  for (const item of items) {\n    await db.save(item);\n  }",
+              "fix_start_line": 2,
+              "fix_end_line": 4
+            }
+          }
+        ],
+        "score": 90,
+        "summary": {
+          "critical": 0,
+          "high": 1,
+          "medium": 0,
+          "low": 0,
+          "info": 0
+        },
+        "tool_errors": {},
+        "ai_review": {
+          "enabled": true,
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "confirmed": 0,
+          "false_positives": 0,
+          "added": 1,
+          "overridden": 0,
+          "chunks": 1,
+          "truncated": false,
+          "error": null
+        }
+      }
+    },
+    {
+      "name": "t10_clean",
+      "seconds": 2.6,
+      "response": {
+        "language": "python",
+        "issues": [],
+        "score": 100,
+        "summary": {
+          "critical": 0,
+          "high": 0,
+          "medium": 0,
+          "low": 0,
+          "info": 0
+        },
+        "tool_errors": {},
+        "ai_review": {
+          "enabled": true,
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "confirmed": 0,
+          "false_positives": 0,
+          "added": 0,
+          "overridden": 0,
+          "chunks": 1,
+          "truncated": false,
+          "error": null
+        }
+      }
+    }
+  ]
+}

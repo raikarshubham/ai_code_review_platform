@@ -1,0 +1,297 @@
+{
+  "meta": {
+    "date": "2026-10-06",
+    "provider": "gemini",
+    "model": "gemini-3.5-flash-lite",
+    "label": "lite-v3",
+    "set": "heldout",
+    "prompt": "f96bf7b1"
+  },
+  "totals": {
+    "snippets": 4,
+    "recall": 1.0,
+    "found": 4,
+    "expected": 4,
+    "extras": 0,
+    "fp_dismissed": "1/1",
+    "wrong_dismissals": 0,
+    "fix_violations": 0,
+    "clean_violations": 0,
+    "errors": 0,
+    "avg_seconds": 2.9
+  },
+  "scores": [
+    {
+      "name": "h01_dict_mutation_and_planted_fp",
+      "split": "heldout",
+      "expected": 1,
+      "found": 1,
+      "missed": [],
+      "extras": [],
+      "fp_total": 1,
+      "fp_correct": 1,
+      "wrong_dismissals": [],
+      "fix_violations": [],
+      "clean_violation": false,
+      "seconds": 4.1,
+      "error": null
+    },
+    {
+      "name": "h02_nil_map",
+      "split": "heldout",
+      "expected": 1,
+      "found": 1,
+      "missed": [],
+      "extras": [],
+      "fp_total": 0,
+      "fp_correct": 0,
+      "wrong_dismissals": [],
+      "fix_violations": [],
+      "clean_violation": false,
+      "seconds": 3.5,
+      "error": null
+    },
+    {
+      "name": "h03_reader_leak",
+      "split": "heldout",
+      "expected": 1,
+      "found": 1,
+      "missed": [],
+      "extras": [],
+      "fp_total": 0,
+      "fp_correct": 0,
+      "wrong_dismissals": [],
+      "fix_violations": [],
+      "clean_violation": false,
+      "seconds": 1.9,
+      "error": null
+    },
+    {
+      "name": "h04_numeric_sort",
+      "split": "heldout",
+      "expected": 1,
+      "found": 1,
+      "missed": [],
+      "extras": [],
+      "fp_total": 0,
+      "fp_correct": 0,
+      "wrong_dismissals": [],
+      "fix_violations": [],
+      "clean_violation": false,
+      "seconds": 2.0,
+      "error": null
+    }
+  ],
+  "responses": [
+    {
+      "name": "h01_dict_mutation_and_planted_fp",
+      "seconds": 4.1,
+      "response": {
+        "language": "python",
+        "issues": [
+          {
+            "tool": "ai",
+            "rule_id": "ai-dictionary-mutation-during-iteration",
+            "category": "bug",
+            "severity": "high",
+            "line": 9,
+            "end_line": 12,
+            "message": "RuntimeError due to dictionary mutation during iteration",
+            "symbol": "dictionary-mutation-during-iteration",
+            "ai": {
+              "verdict": "confirmed",
+              "explanation": "Iterating over a dictionary using .items() while deleting keys from it raises a RuntimeError: dictionary changed size during iteration.",
+              "fix": "Iterate over a list of keys (e.g. list(users.items()) or list(users.keys())) before mutating the dictionary.",
+              "fixed_code": "    for name, user in list(users.items()):\n        if not user[\"active\"]:\n            del users[name]\n    return users",
+              "fix_start_line": 9,
+              "fix_end_line": 12
+            }
+          },
+          {
+            "tool": "bandit",
+            "rule_id": "B105",
+            "category": "security",
+            "severity": "high",
+            "line": 1,
+            "end_line": 1,
+            "message": "Possible hardcoded password: 'password'",
+            "symbol": "hardcoded_password_string",
+            "ai": {
+              "verdict": "false_positive",
+              "explanation": "The string 'password' is used here as a field name or form key, not as a hardcoded secret credential.",
+              "fix": "No fix needed as this is a false positive.",
+              "fixed_code": null,
+              "fix_start_line": null,
+              "fix_end_line": null
+            }
+          }
+        ],
+        "score": 90,
+        "summary": {
+          "critical": 0,
+          "high": 1,
+          "medium": 0,
+          "low": 0,
+          "info": 0
+        },
+        "tool_errors": {},
+        "ai_review": {
+          "enabled": true,
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "confirmed": 0,
+          "false_positives": 1,
+          "added": 1,
+          "overridden": 0,
+          "chunks": 1,
+          "truncated": false,
+          "error": null
+        }
+      }
+    },
+    {
+      "name": "h02_nil_map",
+      "seconds": 3.5,
+      "response": {
+        "language": "go",
+        "issues": [
+          {
+            "tool": "ai",
+            "rule_id": "ai-nil-map-assignment",
+            "category": "bug",
+            "severity": "high",
+            "line": 4,
+            "end_line": 4,
+            "message": "Assignment to nil map causes panic",
+            "symbol": "nil-map-assignment",
+            "ai": {
+              "verdict": "confirmed",
+              "explanation": "The variable 'counts' is declared as a nil map. Writing to a nil map in Go (line 6) causes a runtime panic. It must be initialized using make(map[string]int).",
+              "fix": "Initialize the counts map using make before populating it.",
+              "fixed_code": "\tcounts := make(map[string]int)",
+              "fix_start_line": 4,
+              "fix_end_line": 4
+            }
+          }
+        ],
+        "score": 90,
+        "summary": {
+          "critical": 0,
+          "high": 1,
+          "medium": 0,
+          "low": 0,
+          "info": 0
+        },
+        "tool_errors": {},
+        "ai_review": {
+          "enabled": true,
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "confirmed": 0,
+          "false_positives": 0,
+          "added": 1,
+          "overridden": 0,
+          "chunks": 1,
+          "truncated": false,
+          "error": null
+        }
+      }
+    },
+    {
+      "name": "h03_reader_leak",
+      "seconds": 1.9,
+      "response": {
+        "language": "java",
+        "issues": [
+          {
+            "tool": "ai",
+            "rule_id": "ai-resource-leak",
+            "category": "bug",
+            "severity": "medium",
+            "line": 7,
+            "end_line": 9,
+            "message": "BufferedReader is never closed",
+            "symbol": "resource-leak",
+            "ai": {
+              "verdict": "confirmed",
+              "explanation": "The BufferedReader and underlying FileReader are instantiated and returned without being closed, leading to a file descriptor leak if an exception occurs or when the garbage collector eventually runs.",
+              "fix": "Use a try-with-resources statement to ensure the reader is closed automatically.",
+              "fixed_code": "        try (BufferedReader reader = new BufferedReader(new FileReader(path))) {\n            return reader.readLine();\n        }",
+              "fix_start_line": 7,
+              "fix_end_line": 9
+            }
+          }
+        ],
+        "score": 96,
+        "summary": {
+          "critical": 0,
+          "high": 0,
+          "medium": 1,
+          "low": 0,
+          "info": 0
+        },
+        "tool_errors": {},
+        "ai_review": {
+          "enabled": true,
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "confirmed": 0,
+          "false_positives": 0,
+          "added": 1,
+          "overridden": 0,
+          "chunks": 1,
+          "truncated": false,
+          "error": null
+        }
+      }
+    },
+    {
+      "name": "h04_numeric_sort",
+      "seconds": 2.0,
+      "response": {
+        "language": "javascript",
+        "issues": [
+          {
+            "tool": "ai",
+            "rule_id": "ai-lexical-sort-prices",
+            "category": "bug",
+            "severity": "medium",
+            "line": 2,
+            "end_line": 2,
+            "message": "Array.prototype.sort() sorts elements as strings by default",
+            "symbol": "lexical-sort-prices",
+            "ai": {
+              "verdict": "confirmed",
+              "explanation": "Calling sort() without a comparator function sorts elements lexicographically (e.g., [10, 2] becomes [10, 2]), returning 10 instead of 2 as the cheapest price.",
+              "fix": "Pass a numeric comparator function to Array.prototype.sort() so numbers are compared numerically.",
+              "fixed_code": "  const sorted = prices.sort((a, b) => a - b);",
+              "fix_start_line": 2,
+              "fix_end_line": 2
+            }
+          }
+        ],
+        "score": 96,
+        "summary": {
+          "critical": 0,
+          "high": 0,
+          "medium": 1,
+          "low": 0,
+          "info": 0
+        },
+        "tool_errors": {},
+        "ai_review": {
+          "enabled": true,
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "confirmed": 0,
+          "false_positives": 0,
+          "added": 1,
+          "overridden": 0,
+          "chunks": 1,
+          "truncated": false,
+          "error": null
+        }
+      }
+    }
+  ]
+}
