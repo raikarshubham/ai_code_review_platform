@@ -1,6 +1,7 @@
 import json
 import re
 import subprocess
+import warnings
 from collections import defaultdict
 from pathlib import Path
 
@@ -98,11 +99,20 @@ def fixture_annotations(fixture: Path) -> tuple[dict[str, set[int]], dict[str, s
 
 def engine_matches(rule_file: Path, fixture: Path) -> dict[str, set[int]]:
     language = detect_language(fixture.name)
-    completed = subprocess.run(
-        [semgrep_runner.find_semgrep_core(), "-rules", str(rule_file),
-         "-lang", semgrep_runner.SEMGREP_LANG[language], "-json", str(fixture)],
-        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120,
-    )
+    command = [semgrep_runner.find_semgrep_core(), "-rules", str(rule_file),
+               "-lang", semgrep_runner.SEMGREP_LANG[language], "-json", str(fixture)]
+
+    def run_engine():
+        return subprocess.run(command, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
+
+    # A fixture run takes under 2 s. semgrep-core has rarely hung on Windows and then passed on
+    # a re-run (see SEMGREP_TIMEOUT_SECONDS), so retry once, with a warning that shows in the
+    # pytest summary. A rule that is really too slow still times out twice and fails.
+    try:
+        completed = run_engine()
+    except subprocess.TimeoutExpired:
+        warnings.warn(f"semgrep-core timed out once on {fixture.name}; retried")
+        completed = run_engine()
     report = json.loads(completed.stdout[completed.stdout.find("{"):])
     # Any engine error means a rule failed to load (and would silently never fire).
     assert report["errors"] == [], [e.get("message", e)[:300] for e in report["errors"]]
