@@ -1,0 +1,297 @@
+{
+  "meta": {
+    "date": "2026-10-06",
+    "provider": "gemini",
+    "model": "gemini-3.5-flash-lite",
+    "label": "lite-v2",
+    "set": "heldout",
+    "prompt": "96e33e5f"
+  },
+  "totals": {
+    "snippets": 4,
+    "recall": 1.0,
+    "found": 4,
+    "expected": 4,
+    "extras": 0,
+    "fp_dismissed": "1/1",
+    "wrong_dismissals": 0,
+    "fix_violations": 0,
+    "clean_violations": 0,
+    "errors": 0,
+    "avg_seconds": 2.3
+  },
+  "scores": [
+    {
+      "name": "h01_dict_mutation_and_planted_fp",
+      "split": "heldout",
+      "expected": 1,
+      "found": 1,
+      "missed": [],
+      "extras": [],
+      "fp_total": 1,
+      "fp_correct": 1,
+      "wrong_dismissals": [],
+      "fix_violations": [],
+      "clean_violation": false,
+      "seconds": 3.3,
+      "error": null
+    },
+    {
+      "name": "h02_nil_map",
+      "split": "heldout",
+      "expected": 1,
+      "found": 1,
+      "missed": [],
+      "extras": [],
+      "fp_total": 0,
+      "fp_correct": 0,
+      "wrong_dismissals": [],
+      "fix_violations": [],
+      "clean_violation": false,
+      "seconds": 2.0,
+      "error": null
+    },
+    {
+      "name": "h03_reader_leak",
+      "split": "heldout",
+      "expected": 1,
+      "found": 1,
+      "missed": [],
+      "extras": [],
+      "fp_total": 0,
+      "fp_correct": 0,
+      "wrong_dismissals": [],
+      "fix_violations": [],
+      "clean_violation": false,
+      "seconds": 1.7,
+      "error": null
+    },
+    {
+      "name": "h04_numeric_sort",
+      "split": "heldout",
+      "expected": 1,
+      "found": 1,
+      "missed": [],
+      "extras": [],
+      "fp_total": 0,
+      "fp_correct": 0,
+      "wrong_dismissals": [],
+      "fix_violations": [],
+      "clean_violation": false,
+      "seconds": 2.1,
+      "error": null
+    }
+  ],
+  "responses": [
+    {
+      "name": "h01_dict_mutation_and_planted_fp",
+      "seconds": 3.3,
+      "response": {
+        "language": "python",
+        "issues": [
+          {
+            "tool": "ai",
+            "rule_id": "ai-runtime-dictionary-mutation",
+            "category": "bug",
+            "severity": "high",
+            "line": 9,
+            "end_line": 12,
+            "message": "RuntimeError due to dictionary mutation during iteration",
+            "symbol": "runtime-dictionary-mutation",
+            "ai": {
+              "verdict": "confirmed",
+              "explanation": "Mutating a dictionary using 'del users[name]' while iterating over its items via 'for name, user in users.items():' raises a RuntimeError: dictionary changed size during iteration.",
+              "fix": "Iterate over a list of keys or use a dictionary comprehension to avoid modifying the dictionary during iteration.",
+              "fixed_code": "    for name, user in list(users.items()):\n        if not user[\"active\"]:\n            del users[name]\n    return users",
+              "fix_start_line": 9,
+              "fix_end_line": 12
+            }
+          },
+          {
+            "tool": "bandit",
+            "rule_id": "B105",
+            "category": "security",
+            "severity": "high",
+            "line": 1,
+            "end_line": 1,
+            "message": "Possible hardcoded password: 'password'",
+            "symbol": "hardcoded_password_string",
+            "ai": {
+              "verdict": "false_positive",
+              "explanation": "The string 'password' is used as a dictionary key / form field name, not as an actual hardcoded credential.",
+              "fix": "No change needed.",
+              "fixed_code": null,
+              "fix_start_line": null,
+              "fix_end_line": null
+            }
+          }
+        ],
+        "score": 90,
+        "summary": {
+          "critical": 0,
+          "high": 1,
+          "medium": 0,
+          "low": 0,
+          "info": 0
+        },
+        "tool_errors": {},
+        "ai_review": {
+          "enabled": true,
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "confirmed": 0,
+          "false_positives": 1,
+          "added": 1,
+          "overridden": 0,
+          "chunks": 1,
+          "truncated": false,
+          "error": null
+        }
+      }
+    },
+    {
+      "name": "h02_nil_map",
+      "seconds": 2.0,
+      "response": {
+        "language": "go",
+        "issues": [
+          {
+            "tool": "ai",
+            "rule_id": "ai-nil-map-assignment",
+            "category": "bug",
+            "severity": "high",
+            "line": 4,
+            "end_line": 8,
+            "message": "Writing to a nil map causes a panic",
+            "symbol": "nil-map-assignment",
+            "ai": {
+              "verdict": "confirmed",
+              "explanation": "The map `counts` is declared with `var counts map[string]int`, which initializes it to `nil`. Attempting to write to a nil map at line 6 (`counts[w]++`) causes a runtime panic.",
+              "fix": "Initialize the map using `make(map[string]int)` before writing to it.",
+              "fixed_code": "func CountWords(words []string) map[string]int {\n\tcounts := make(map[string]int)\n\tfor _, w := range words {\n\t\tcounts[w]++\n\t}\n\treturn counts\n}",
+              "fix_start_line": 3,
+              "fix_end_line": 9
+            }
+          }
+        ],
+        "score": 90,
+        "summary": {
+          "critical": 0,
+          "high": 1,
+          "medium": 0,
+          "low": 0,
+          "info": 0
+        },
+        "tool_errors": {},
+        "ai_review": {
+          "enabled": true,
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "confirmed": 0,
+          "false_positives": 0,
+          "added": 1,
+          "overridden": 0,
+          "chunks": 1,
+          "truncated": false,
+          "error": null
+        }
+      }
+    },
+    {
+      "name": "h03_reader_leak",
+      "seconds": 1.7,
+      "response": {
+        "language": "java",
+        "issues": [
+          {
+            "tool": "ai",
+            "rule_id": "ai-resource-leak",
+            "category": "bug",
+            "severity": "medium",
+            "line": 7,
+            "end_line": 9,
+            "message": "BufferedReader is not closed",
+            "symbol": "resource-leak",
+            "ai": {
+              "verdict": "confirmed",
+              "explanation": "The BufferedReader and underlying FileReader are instantiated but never closed, leading to a file descriptor leak if an exception occurs or when the garbage collector hasn't run yet.",
+              "fix": "Use a try-with-resources statement to ensure the reader is closed automatically.",
+              "fixed_code": "    String firstLine(String path) throws IOException {\n        try (BufferedReader reader = new BufferedReader(new FileReader(path))) {\n            return reader.readLine();\n        }\n    }",
+              "fix_start_line": 6,
+              "fix_end_line": 9
+            }
+          }
+        ],
+        "score": 96,
+        "summary": {
+          "critical": 0,
+          "high": 0,
+          "medium": 1,
+          "low": 0,
+          "info": 0
+        },
+        "tool_errors": {},
+        "ai_review": {
+          "enabled": true,
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "confirmed": 0,
+          "false_positives": 0,
+          "added": 1,
+          "overridden": 0,
+          "chunks": 1,
+          "truncated": false,
+          "error": null
+        }
+      }
+    },
+    {
+      "name": "h04_numeric_sort",
+      "seconds": 2.1,
+      "response": {
+        "language": "javascript",
+        "issues": [
+          {
+            "tool": "ai",
+            "rule_id": "ai-lexical-array-sort",
+            "category": "bug",
+            "severity": "medium",
+            "line": 2,
+            "end_line": 2,
+            "message": "Array.prototype.sort sorts elements as strings by default",
+            "symbol": "lexical-array-sort",
+            "ai": {
+              "verdict": "confirmed",
+              "explanation": "Calling prices.sort() without a compare function sorts the elements lexicographically (e.g., [10, 2] becomes [10, 2] because '10' comes before '2'), which breaks numerical price comparisons.",
+              "fix": "Pass a comparator function to sort numerically, or use Math.min(...prices).",
+              "fixed_code": "  const sorted = prices.sort((a, b) => a - b);",
+              "fix_start_line": 2,
+              "fix_end_line": 2
+            }
+          }
+        ],
+        "score": 96,
+        "summary": {
+          "critical": 0,
+          "high": 0,
+          "medium": 1,
+          "low": 0,
+          "info": 0
+        },
+        "tool_errors": {},
+        "ai_review": {
+          "enabled": true,
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "confirmed": 0,
+          "false_positives": 0,
+          "added": 1,
+          "overridden": 0,
+          "chunks": 1,
+          "truncated": false,
+          "error": null
+        }
+      }
+    }
+  ]
+}
