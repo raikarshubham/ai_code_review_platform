@@ -190,6 +190,60 @@ AI review is then skipped with `ai_review.error` "rate limited; retry in 5 h 41 
 likely used up)", and the static results still come back. Switching `LLM_PROVIDER` to `groq`
 in `.env` gives you a separate quota.
 
+Each Gemini model has its own capacity and quota. When `gemini-3.5-flash` was overloaded
+(HTTP 503 on every attempt), `LLM_MODEL=gemini-3.5-flash-lite` worked, at about 3 s per
+review instead of 7-45 s.
+
+### Prompt evaluation
+
+The prompt is tuned against measurements, not guesses. `backend/evals/snippets/` holds 14 small
+files (10 for tuning, 4 held out), each with a planted bug marked by a comment:
+
+```python
+    # expect: bug|smell                    # an AI issue of this category must be on the next line
+    # expect-fp: B105                      # this static finding must be dismissed as a false positive
+    # fix-must-not: with sqlite3.connect(  # the fix for the next line must not contain this
+```
+
+`scripts/eval_prompt.py` runs the real pipeline on every snippet and scores the replies:
+planted bugs found, false alarms ("extras"), planted false positives dismissed, findings that
+were wrongly dismissed, and fix violations. Each run is saved with a hash of the prompt to
+`backend/evals/results/`. `--rescore` re-scores a saved run after a harness change without calling the
+API again.
+
+```bash
+backend/.venv/Scripts/python scripts/eval_prompt.py --set tuning --label v3
+backend/.venv/Scripts/python scripts/eval_prompt.py --set heldout --label v3
+```
+
+Results on `gemini-3.5-flash-lite` (2026-10-06, 13 planted bugs, all runs scored with the same
+rules):
+
+| Prompt | Bugs found | Fix violations | Extras | FPs dismissed | Avg time |
+|---|---|---|---|---|---|
+| v1 | 12/13 | 3 | 0 | 2/2 | 3.0 s |
+| v2: precision and fix-quality rules | 12/13 | 3 | 0 | 2/2 | 2.9 s |
+| **v3: v2 + category definitions, sqlite3 close, random salts** (current) | **13/13** | **2** | 0 | 2/2 | 3.3 s |
+
+What the numbers showed:
+
+- v1 and v2 each found every bug but labelled one resource leak `security`, so the scorer counted
+  a miss. v3 says what each category means, and labels all of them correctly.
+- v2's general rule ("if unsure whether a context manager closes it, close it explicitly") did
+  not stop `with sqlite3.connect()` being suggested as the leak fix. That `with` only commits or
+  rolls back. Stating that fact directly in v3 fixed it.
+- v2 "fixed" MD5 with `scrypt(salt=b'salt')`, a constant salt. The harness did not catch
+  that, so a `fix-must-not` rule was added and the earlier runs were rescored. Checks also need
+  testing: `fix-must-not: sha256` wrongly flagged v3's correct `pbkdf2_hmac('sha256', ...)`, so it
+  was narrowed to `hashlib.sha256(`.
+- Still open: v3 sometimes puts `import` lines inside a function, even though the prompt says not
+  to.
+- These are single runs on 14 snippets, so a difference of one is within noise. The held-out set
+  (4/4 for v3) is the check that v3 isn't just fitted to the tuning snippets.
+
+A Day 5 baseline on `gemini-3.5-flash` (`backend/evals/results/2026-10-05-*`) found all 7 bugs it was able to
+check before the daily quota ran out.
+
 ## Scoring
 
 ```
@@ -211,7 +265,7 @@ report (for example `eval` from both Pylint and Bandit) are merged into one.
 - [x] Day 3.5: 19 languages: language list, Lizard, Semgrep with our own rules, SQL/YAML/JSON/CSS checks, language picker
 - [x] Day 4: LLM client + reviewer prompt + validation
 - [x] Day 5: Retries, rate limits, chunking, fallback; `scripts/check_llm.py`
-- [ ] Day 6: Prompt tuning on 10-15 buggy snippets (in progress: evaluation set, harness and baseline done; paused for the Gemini free-tier quota)
+- [x] Day 6: Prompt tuning on 14 annotated snippets (prompt v3, see [Prompt evaluation](#prompt-evaluation))
 - [ ] Day 7: Buffer
 - [x] Day 8-10: Monaco editor, inline severity annotations, side-by-side fix diffs
 - [ ] Day 11-12: Dashboard (score, issues by category, complexity chart), PostgreSQL history
