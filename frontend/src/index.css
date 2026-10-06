@@ -5,6 +5,11 @@
   --surface: #ffffff;
   --border: #e2e8f0;
   --accent: #4f46e5;
+  /* Chart marks, checked with the dataviz palette validator against the card surface:
+     accent = the data that matters, muted = de-emphasized context. */
+  --chart-accent: #4f46e5;
+  --chart-muted: #7c8aa0;
+  --chart-track: #eef0fb;
 
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   color: var(--text);
@@ -19,6 +24,9 @@
     --surface: #1e293b;
     --border: #334155;
     --accent: #818cf8;
+    --chart-accent: #7173f0;
+    --chart-muted: #64748b;
+    --chart-track: #283449;
   }
 }
 

@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { analyzeCode, checkHealth, getLanguages } from './api.js'
+import Dashboard from './dashboard/Dashboard.jsx'
 import { canApply } from './editor/fixes.js'
 import HistoryList from './history/HistoryList.jsx'
 import { openHistory, toRecord } from './history/store.js'
@@ -148,7 +149,7 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [reveal, setReveal] = useState(null) // { line, endLine, seq } for the editor to jump to
   const [diffIssue, setDiffIssue] = useState(null) // issue whose fix is shown as a diff, or null
-  const [tab, setTab] = useState('results') // 'results' | 'history'
+  const [tab, setTab] = useState('results') // 'results' | 'dashboard' | 'history'
   // undefined while opening, then the store, or null if this browser has no usable IndexedDB.
   const [history, setHistory] = useState(undefined)
   const [historyItems, setHistoryItems] = useState([])
@@ -230,7 +231,7 @@ export default function App() {
     setLoading(true)
     setError(null)
     setDiffIssue(null)
-    setTab('results')
+    setTab((current) => (current === 'history' ? 'results' : current)) // stay on the dashboard if open
     try {
       const submitted = code
       const analysis = await analyzeCode(submitted, language)
@@ -309,6 +310,10 @@ export default function App() {
             <button role="tab" aria-selected={tab === 'results'} onClick={() => setTab('results')}>
               Results
             </button>
+            <button role="tab" aria-selected={tab === 'dashboard'} onClick={() => setTab('dashboard')} disabled={!result}
+              title={result ? undefined : 'Analyze some code first'}>
+              Dashboard
+            </button>
             <button role="tab" aria-selected={tab === 'history'} onClick={() => setTab('history')}>
               History{historyItems.length > 0 && ` (${historyItems.length})`}
             </button>
@@ -322,6 +327,12 @@ export default function App() {
               onDelete={(id) => updateHistory((store) => store.remove(id))}
               onClear={clearHistory}
             />
+          )}
+          {tab === 'dashboard' && result && (
+            <Dashboard result={result} historyItems={historyItems} onSelectFunction={selectIssue} />
+          )}
+          {tab === 'dashboard' && !result && (
+            <p className="muted placeholder">Analyze some code to see its dashboard.</p>
           )}
           {tab === 'results' && error && <p className="error">{error}</p>}
           {tab === 'results' && !result && !error && (
