@@ -107,6 +107,16 @@ class AIReview(BaseModel):
     error: str | None = None
 
 
+class FunctionMetric(BaseModel):
+    """Cyclomatic complexity of one function, for every function (not only the ones above the
+    threshold, which also become issues). Feeds the dashboard's complexity chart."""
+
+    name: str = Field(description="Methods are class-qualified, e.g. Cart.total")
+    line: int = Field(ge=1)
+    end_line: int | None = Field(default=None, ge=1)
+    complexity: int = Field(ge=1)
+
+
 class AnalyzeResponse(BaseModel):
     language: Language
     issues: list[Issue]
@@ -117,3 +127,7 @@ class AnalyzeResponse(BaseModel):
         description="Analyzers that failed (tool -> reason). Other tools' results are still returned.",
     )
     ai_review: AIReview = Field(default_factory=AIReview)
+    functions: list[FunctionMetric] = Field(
+        default_factory=list,
+        description="Complexity of every function found (empty for languages without functions)",
+    )

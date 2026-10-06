@@ -31,6 +31,13 @@ def test_parse_ranks(ccn, rank, severity):
     assert (issue.rule_id, issue.severity) == (f"CC-{rank}", severity)
 
 
+def test_functions_lists_every_function():
+    output = csv_row("simple", 3, 1, 4) + csv_row("branchy", 13, 10, 30)
+    found = [(f.name, f.line, f.end_line, f.complexity) for f in lizard_runner.functions(output)]
+    assert found == [("simple", 1, 4, 3), ("branchy", 10, 30, 13)]
+    assert lizard_runner.functions("") == []
+
+
 def test_parse_empty_output_means_no_functions():
     assert lizard_runner.parse("") == []
 

@@ -161,6 +161,18 @@ def test_radon_skips_class_entries_but_keeps_methods_and_closures():
     assert any("'inner'" in message for message in messages)
 
 
+def test_radon_functions_lists_every_function_with_qualified_names():
+    method = radon_block("m", 12, "C", block_type="method", classname="Order", lineno=20)
+    output = radon_output([
+        radon_block("Order", 30, "D", block_type="class", methods=[method]),
+        method,
+        radon_block("simple", 1, "A", lineno=5),
+    ])
+    found = {(f.name, f.line, f.end_line, f.complexity) for f in radon_runner.functions(output)}
+    # Below-threshold functions are included too: the chart shows them against the threshold.
+    assert found == {("Order.m", 20, 30, 12), ("simple", 5, 15, 1)}
+
+
 def test_radon_error_entry_raises():
     with pytest.raises(AnalyzerError):
         radon_runner.parse(json.dumps({"snippet.py": {"error": "invalid syntax"}}))

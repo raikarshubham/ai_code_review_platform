@@ -23,8 +23,9 @@ from app.analyzers.runner import AnalyzerError
 from app.languages import SPECS, Language, LanguageSpec
 from app.llm.client import LLMClient, LLMError
 from app.llm.reviewer import review
+from app.metrics import function_metrics
 from app.postprocess import dedupe, sort_issues
-from app.schemas import AIReview, AnalyzeResponse, Category, Issue, Severity
+from app.schemas import AIReview, AnalyzeResponse, Category, FunctionMetric, Issue, Severity
 from app.scoring import score
 
 # Each analyzer module exposes NAME and run(code, spec) -> list[Issue].
@@ -61,8 +62,9 @@ def check_syntax(code: str) -> Issue | None:
     return None
 
 
-def run_analyzers(code: str, spec: LanguageSpec) -> tuple[list[Issue], dict[str, str]]:
-    """Run the language's analyzers in parallel; a failing tool is reported, not fatal.
+def run_analyzers(code: str, spec: LanguageSpec) -> tuple[list[Issue], dict[str, str], list[FunctionMetric]]:
+    """Run the language's analyzers, plus the per-function metrics, in parallel; a failing tool
+    is reported, not fatal.
 
     Threads are enough here: each analyzer spends its time waiting on its own subprocess,
     so total latency is roughly the slowest tool instead of the sum of all of them.
@@ -70,16 +72,15 @@ def run_analyzers(code: str, spec: LanguageSpec) -> tuple[list[Issue], dict[str,
     analyzers = [ANALYZERS[name] for name in spec.analyzers]
     issues: list[Issue] = []
     errors: dict[str, str] = {}
-    if not analyzers:
-        return issues, errors
-    with ThreadPoolExecutor(max_workers=len(analyzers)) as pool:
+    with ThreadPoolExecutor(max_workers=len(analyzers) + 1) as pool:
+        metrics = pool.submit(function_metrics, code, spec)  # never raises: [] on failure
         futures = {analyzer.NAME: pool.submit(analyzer.run, code, spec) for analyzer in analyzers}
         for name, future in futures.items():
             try:
                 issues.extend(future.result())
             except AnalyzerError as exc:
                 errors[name] = str(exc)
-    return issues, errors
+        return issues, errors, metrics.result()
 
 
 def summarize(issues: list[Issue]) -> dict[Severity, int]:
@@ -112,7 +113,7 @@ def analyze(code: str, language: Language = Language.PYTHON, llm_client: LLMClie
                 language=language, issues=[syntax_issue], score=0, summary=summarize([syntax_issue])
             )
 
-    raw_issues, tool_errors = run_analyzers(code, spec)
+    raw_issues, tool_errors, functions = run_analyzers(code, spec)
     issues, ai_status = ai_review_step(code, spec, dedupe(raw_issues), llm_client)
     issues = sort_issues(issues)
 
@@ -126,4 +127,5 @@ def analyze(code: str, language: Language = Language.PYTHON, llm_client: LLMClie
         summary=summarize(counted),
         tool_errors=tool_errors,
         ai_review=ai_status,
+        functions=functions,
     )

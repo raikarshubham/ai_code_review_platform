@@ -7,7 +7,7 @@ import io
 
 from app.analyzers.runner import AnalyzerError, run_tool
 from app.languages import LanguageSpec
-from app.schemas import Category, Issue, Severity
+from app.schemas import Category, FunctionMetric, Issue, Severity
 
 NAME = "lizard"
 
@@ -29,29 +29,39 @@ def _rank(complexity: int) -> str:
     return "F"
 
 
-def parse(output: str) -> list[Issue]:
-    issues = []
+def functions(output: str) -> list[FunctionMetric]:
+    """Every function Lizard found, with its complexity. One parser for the issues (parse), the
+    dashboard chart and the AI chunker (function_ranges), so they can never disagree."""
+    found = []
     for row in csv.reader(io.StringIO(output)):
         if not row:
             continue
         try:
-            complexity, start, end = int(row[CCN]), int(row[START]), int(row[END])
-            name = row[FUNCTION]
+            found.append(
+                FunctionMetric(name=row[FUNCTION], line=int(row[START]), end_line=int(row[END]),
+                               complexity=int(row[CCN]))
+            )
         except (IndexError, ValueError) as exc:
             raise AnalyzerError(f"lizard returned an unexpected row: {row!r}") from exc
-        if complexity <= COMPLEXITY_THRESHOLD:
+    return found
+
+
+def parse(output: str) -> list[Issue]:
+    issues = []
+    for function in functions(output):
+        if function.complexity <= COMPLEXITY_THRESHOLD:
             continue
-        rank = _rank(complexity)
+        rank = _rank(function.complexity)
         issues.append(
             Issue(
                 tool=NAME,
                 rule_id=f"CC-{rank}",
                 category=Category.COMPLEXITY,
-                severity=Severity.HIGH if complexity > HIGH_COMPLEXITY else Severity.MEDIUM,
-                line=start,
-                end_line=end,
+                severity=Severity.HIGH if function.complexity > HIGH_COMPLEXITY else Severity.MEDIUM,
+                line=function.line,
+                end_line=function.end_line,
                 message=(
-                    f"'{name}' has cyclomatic complexity {complexity} (rank {rank}); "
+                    f"'{function.name}' has cyclomatic complexity {function.complexity} (rank {rank}); "
                     f"consider splitting it into smaller functions"
                 ),
                 symbol="cyclomatic-complexity",
@@ -60,21 +70,16 @@ def parse(output: str) -> list[Issue]:
     return issues
 
 
+def run_raw(code: str, spec: LanguageSpec) -> str:
+    # No functions in the file -> Lizard prints nothing, which is a valid empty result.
+    return run_tool("lizard", ARGS, code, spec.temp_ext, allow_empty=True)
+
+
 def function_ranges(code: str, spec: LanguageSpec) -> list[tuple[int, int]]:
     """(start, end) line of every function Lizard finds. The AI reviewer uses these to split
     long files at function boundaries. Raises AnalyzerError like run()."""
-    output = run_tool("lizard", ARGS, code, spec.temp_ext, allow_empty=True)
-    ranges = []
-    for row in csv.reader(io.StringIO(output)):
-        if not row:
-            continue
-        try:
-            ranges.append((int(row[START]), int(row[END])))
-        except (IndexError, ValueError) as exc:
-            raise AnalyzerError(f"lizard returned an unexpected row: {row!r}") from exc
-    return ranges
+    return [(function.line, function.end_line) for function in functions(run_raw(code, spec))]
 
 
 def run(code: str, spec: LanguageSpec) -> list[Issue]:
-    # No functions in the file -> Lizard prints nothing, which is a valid "no issues".
-    return parse(run_tool("lizard", ARGS, code, spec.temp_ext, allow_empty=True))
+    return parse(run_raw(code, spec))
