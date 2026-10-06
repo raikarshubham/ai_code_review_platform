@@ -40,8 +40,8 @@ project. Every rule file has a fixture next to it (for example `go.yml` + `go.go
 ## Stack
 
 - **Backend:** Python 3.11+ (developed on 3.13), FastAPI, Pydantic v2, pytest
-- **Frontend:** React + Vite
-- **Planned:** Monaco editor, PostgreSQL history, Docker, Render/Railway + Vercel
+- **Frontend:** React + Vite, Monaco editor (bundled), Vitest
+- **Planned:** PostgreSQL history, Docker, Render/Railway + Vercel
 
 ## Running locally
 
@@ -82,10 +82,29 @@ languages report it in `tool_errors` and the Semgrep rule tests are skipped.
 cd frontend
 npm install
 npm run dev                       # http://localhost:5173
+npm test                          # unit tests (Vitest)
 ```
 
 Set `VITE_API_URL` to point the frontend at a different backend. Copy `.env.example` to `.env`
 for the backend settings (LLM provider and CORS origins).
+
+### What the UI does
+
+- **Monaco editor** (the editor from VS Code) with syntax highlighting for all 19 languages.
+  It's bundled with the app instead of loaded from a CDN. Only the editor core and the
+  highlighters are included, not Monaco's own TypeScript/JSON/CSS language services, because
+  their error squiggles would compete with ours. It loads lazily in its own chunk, so the page
+  appears before the ~700 kB (gzipped) editor arrives.
+- **Inline markers.** Every issue is a squiggle on its first line: critical/high = error,
+  medium = warning, low = info, info = hint. Hovering shows the message, the AI explanation and
+  the fix. A dot in the gutter shows the worst severity on that line. False positives get no
+  marker, since they don't count.
+- **Click "Line N"** in the issue list to jump there with the issue's full range selected.
+- **Fix diffs.** "Show fix" opens a side-by-side diff of the current code against the code with
+  the AI fix applied. **Apply fix** writes it into the editor, and Ctrl+Z undoes it.
+- **Out-of-date results.** Line numbers only match the code that was analyzed. After any edit or
+  applied fix, a banner says so, and the other fixes stay disabled until you re-analyze. A fix is
+  never applied to the wrong lines.
 
 ## API
 
@@ -192,8 +211,8 @@ report (for example `eval` from both Pylint and Bandit) are merged into one.
 - [x] Day 3.5: 19 languages: language list, Lizard, Semgrep with our own rules, SQL/YAML/JSON/CSS checks, language picker
 - [x] Day 4: LLM client + reviewer prompt + validation
 - [x] Day 5: Retries, rate limits, chunking, fallback; `scripts/check_llm.py`
-- [ ] Day 6: Prompt tuning on 10-15 buggy snippets
+- [ ] Day 6: Prompt tuning on 10-15 buggy snippets (in progress: evaluation set, harness and baseline done; paused for the Gemini free-tier quota)
 - [ ] Day 7: Buffer
-- [ ] Day 8-10: Monaco editor, inline severity annotations, side-by-side fix diffs
+- [x] Day 8-10: Monaco editor, inline severity annotations, side-by-side fix diffs
 - [ ] Day 11-12: Dashboard (score, issues by category, complexity chart), PostgreSQL history
 - [ ] Day 13-14: Docker, deploy, architecture diagram, demo video
